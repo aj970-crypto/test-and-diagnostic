@@ -272,7 +272,7 @@ typedef struct LatencyTable
     Calt_Percentile_info Percentile_info[2];
 }LatencyTable;
 
-#define MAX_NUM_OF_CLIENTS 3
+#define MAX_NUM_OF_CLIENTS 1 
 
 LatencyTable Ipv4HashLatencyTable[MAX_NUM_OF_CLIENTS];
 LatencyTable Ipv6HashLatencyTable[MAX_NUM_OF_CLIENTS];
@@ -651,6 +651,7 @@ void prioritymacs(LatencyTable hashLatencyTable[], int count) {
             MacHashEntry *missingEntry = malloc(sizeof(MacHashEntry));
             strncpy(missingEntry->mac, currentMac, MAC_ADDRESS_LEN);
             missingEntry->mac[MAC_ADDRESS_LEN - 1] = '\0';
+	    missingEntry->latencyIndex = priMacLatencyIndex;
             HASH_ADD_STR(g_missingPriorityMacHash, mac, missingEntry);
 
             dbg_log("Inserted missing MAC %s at index %d \n", currentMac, priMacLatencyIndex);
@@ -670,7 +671,22 @@ void prioritymacs(LatencyTable hashLatencyTable[], int count) {
 void UpdateReportingTable(int hashIndex)
 {
     pthread_mutex_lock(&latency_report_lock);
+    
     int index = hash_latency(hashArray[hashIndex].mac);
+    dbg_log(" index = %d\n", index);
+
+    /* ---------------- check priority mac --------------------------- */
+    MacHashEntry *entry = NULL;
+    HASH_FIND_STR(g_missingPriorityMacHash, hashArray[hashIndex].mac, entry);
+    if (entry) {
+
+      //  int latencyIndex = entry->latencyIndex;
+
+        dbg_log("MAC %s found in missing priority MAC hash\n", hashArray[hashIndex].mac);
+        // You can log or handle this case differently if needed
+    }
+    /* --------------------------------------------------------------- */
+
     int i = 0 ;
     LatencyTable *hashLatencyTable = NULL ;
     if (hashArray[hashIndex].ip_type == IPV4 )
@@ -924,14 +940,17 @@ void MeasureTCPLatency(int hashIndex)
     hashArray[hashIndex].Lan_latency_usec = diff_time.tv_usec;
     dbg_log("LAN Latency for %s %u is %lld.%06lld\n",hashArray[hashIndex].mac,hashArray[hashIndex].TcpInfo[INDEX_SYN].th_seq,hashArray[hashIndex].Lan_latency_sec,hashArray[hashIndex].Lan_latency_usec);
     
-
+/*
     MacHashEntry *entry = NULL;
     HASH_FIND_STR(g_missingPriorityMacHash, hashArray[hashIndex].mac, entry);
     if (entry) {
+
+      //  int latencyIndex = entry->latencyIndex;
+
         dbg_log("MAC %s found in missing priority MAC hash\n", hashArray[hashIndex].mac);
         // You can log or handle this case differently if needed
     }
-
+*/
     if ( args.verbose_mode == false )
     {
         UpdateReportingTable(hashIndex);
