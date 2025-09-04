@@ -651,7 +651,7 @@ void prioritymacs(LatencyTable hashLatencyTable[], int count) {
             MacHashEntry *missingEntry = malloc(sizeof(MacHashEntry));
             strncpy(missingEntry->mac, currentMac, MAC_ADDRESS_LEN);
             missingEntry->mac[MAC_ADDRESS_LEN - 1] = '\0';
-	    missingEntry->latencyIndex = priMacLatencyIndex;
+	    //missingEntry->latencyIndex = priMacLatencyIndex;
             HASH_ADD_STR(g_missingPriorityMacHash, mac, missingEntry);
 
             dbg_log("Inserted missing MAC %s at index %d \n", currentMac, priMacLatencyIndex);
@@ -675,27 +675,85 @@ void UpdateReportingTable(int hashIndex)
     int index = hash_latency(hashArray[hashIndex].mac);
     dbg_log(" index = %d\n", index);
 
-    /* ---------------- check priority mac --------------------------- */
-    MacHashEntry *entry = NULL;
-    HASH_FIND_STR(g_missingPriorityMacHash, hashArray[hashIndex].mac, entry);
-    if (entry) {
-
-      //  int latencyIndex = entry->latencyIndex;
-
-        dbg_log("MAC %s found in missing priority MAC hash\n", hashArray[hashIndex].mac);
-        // You can log or handle this case differently if needed
-    }
-    /* --------------------------------------------------------------- */
-
     int i = 0 ;
     LatencyTable *hashLatencyTable = NULL ;
     if (hashArray[hashIndex].ip_type == IPV4 )
+    {
         hashLatencyTable = Ipv4HashLatencyTable ;
+
+	    /* ensuring priority clients latency measurement is calculated  */
+        unsigned int macCount=0, filledClients = 0;
+        while(macCount < MAX_NUM_OF_CLIENTS)
+        {
+            if(hashLatencyTable[macCount].bHasLatencyEntry == true)
+            {
+                 dbg_log("entry registered \n");
+                 filledClients++;
+            }
+          macCount++;
+        }
+        dbg_log(" filled clients = %d\n", filledClients);
+
+       if(filledClients >= MAX_NUM_OF_CLIENTS && macCount > 0) {
+                      dbg_log("Replacing first 3 entries with priority MACs\n");
+                      prioritymacs(hashLatencyTable, MAX_NUM_OF_CLIENTS);
+                      for(int new = 0; new < MAX_NUM_OF_CLIENTS; new++)
+                      {
+                              dbg_log("updated table = %s, %lu, %lld, %lld, %lld, %lld, %lld, %lld, %lld, %lld \n", hashLatencyTable[new].mac, hashLatencyTable[new].num_of_flows,
+                                   hashLatencyTable[new].SynAckMinLatency_sec,hashLatencyTable[new].SynAckMinLatency_usec,
+                                   hashLatencyTable[new].SynAckMaxLatency_sec,hashLatencyTable[new].SynAckMaxLatency_usec,
+                                   hashLatencyTable[new].AckMinLatency_sec,hashLatencyTable[new].AckMinLatency_usec,
+                                   hashLatencyTable[new].AckMaxLatency_sec,hashLatencyTable[new].AckMaxLatency_usec);
+                      }
+          }
+    }
+
     else
         hashLatencyTable = Ipv6HashLatencyTable ;
 
+/* ensuring priority clients latency measurement is calculated  */
+/*    unsigned int macCount=0, filledClients = 0;
+        while(macCount < MAX_NUM_OF_CLIENTS)
+        {
+            if(hashLatencyTable[macCount].bHasLatencyEntry == true)
+            {
+                 dbg_log("entry registered \n");
+                 filledClients++;
+            }
+          macCount++;
+        }
+        dbg_log(" filled clients = %d\n", filledClients);
+
+       if(filledClients >= MAX_NUM_OF_CLIENTS && macCount > 0) {
+                      dbg_log("Replacing first 3 entries with priority MACs\n");
+                      prioritymacs(hashLatencyTable, MAX_NUM_OF_CLIENTS);
+                      for(int new = 0; new < MAX_NUM_OF_CLIENTS; new++)
+                      {
+			      dbg_log("updated table = %s, %lu, %lld, %lld, %lld, %lld, %lld, %lld, %lld, %lld \n", hashLatencyTable[new].mac, hashLatencyTable[new].num_of_flows,
+                                   hashLatencyTable[new].SynAckMinLatency_sec,hashLatencyTable[new].SynAckMinLatency_usec,
+                                   hashLatencyTable[new].SynAckMaxLatency_sec,hashLatencyTable[new].SynAckMaxLatency_usec,
+                                   hashLatencyTable[new].AckMinLatency_sec,hashLatencyTable[new].AckMinLatency_usec,
+                                   hashLatencyTable[new].AckMaxLatency_sec,hashLatencyTable[new].AckMaxLatency_usec);
+                      }
+          }
+*/
+        /* ---------------- check priority mac --------------------------- */
+ 
+        MacHashEntry *entry = NULL;
+      dbg_log(" mac coming to %s function : %s\n", __FUNCTION__, hashArray[hashIndex].mac);
+      HASH_FIND_STR(g_missingPriorityMacHash, hashArray[hashIndex].mac, entry);
+      if (entry) {
+ 
+        //  int latencyIndex = entry->latencyIndex;
+ 
+          dbg_log("MAC %s found in missing priority MAC hash\n", hashArray[hashIndex].mac);
+      }
+      /* --------------------------------------------------------------- */
+
+
     if ( index < MAX_NUM_OF_CLIENTS )
     {
+	    dbg_log(" hashLatency table mac : %s\n", hashLatencyTable[index].mac);
        
         if (strcmp(hashLatencyTable[index].mac,hashArray[hashIndex].mac) == 0)
         {
@@ -823,10 +881,14 @@ void UpdateReportingTable(int hashIndex)
             goto LOG_MINMAX_LATENCY;
         }
 
+
+
         while ( hashLatencyTable[index].mac[0] != '\0')
         {
             if (i >= MAX_NUM_OF_CLIENTS )
             {
+		    dbg_log(" priority mac replacement \n ");
+		    prioritymacs(Ipv4HashLatencyTable, MAX_NUM_OF_CLIENTS);
                 dbg_log("%s : Hash table is full,returning\n",__FUNCTION__); 
                 pthread_mutex_unlock(&latency_report_lock);
                 return;
@@ -1023,7 +1085,7 @@ void* LatencyReportThread(void* arg)
         dbg_log(" filled clients of ipv4 = %d\n", filledClients);
 
 	// Call priorityMacs() if max count is reached and priorityMac(i.e., macAddresses) has entries
-       if(filledClients >= MAX_NUM_OF_CLIENTS && macCount > 0) {
+       /*if(filledClients >= MAX_NUM_OF_CLIENTS && macCount > 0) {
                       dbg_log("Replacing first 3 entries with priority MACs\n");
                       prioritymacs(Ipv4HashLatencyTable, MAX_NUM_OF_CLIENTS);
                       for(int new = 0; new < MAX_NUM_OF_CLIENTS; new++)
@@ -1034,7 +1096,7 @@ void* LatencyReportThread(void* arg)
                                    Ipv4HashLatencyTable[new].AckMinLatency_sec,Ipv4HashLatencyTable[new].AckMinLatency_usec,
                                    Ipv4HashLatencyTable[new].AckMaxLatency_sec,Ipv4HashLatencyTable[new].AckMaxLatency_usec);
                       }
-          }
+          } */
 /* ---------------------------------------------------------------------------------- */
 
         while(i < MAX_NUM_OF_CLIENTS)
@@ -1128,7 +1190,7 @@ void* LatencyReportThread(void* arg)
         dbg_log(" filled clients of ipv6 = %d\n", filledClients);
 
 	// Call priorityMacs() if max count is reached and priorityMac(i.e., macAddresses) has entries
-       if(filledClients >= MAX_NUM_OF_CLIENTS && macCount > 0) {
+     /*  if(filledClients >= MAX_NUM_OF_CLIENTS && macCount > 0) {
                       dbg_log("Replacing first 3 entries with priority MACs\n");
                       prioritymacs(Ipv6HashLatencyTable, MAX_NUM_OF_CLIENTS);
                       for(int new = 0; new < MAX_NUM_OF_CLIENTS; new++)
@@ -1139,7 +1201,7 @@ void* LatencyReportThread(void* arg)
                                    Ipv6HashLatencyTable[new].AckMinLatency_sec,Ipv6HashLatencyTable[new].AckMinLatency_usec,
                                    Ipv6HashLatencyTable[new].AckMaxLatency_sec,Ipv6HashLatencyTable[new].AckMaxLatency_usec);
                       }
-                }
+                } */
 /* ---------------------------------------------------------------------------------- */
 
         while(i < MAX_NUM_OF_CLIENTS)
