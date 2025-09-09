@@ -681,17 +681,17 @@ void UpdateReportingTable(int hashIndex)
     {
         hashLatencyTable = Ipv4HashLatencyTable ;
 
-/* ensuring priority clients latency measurement is calculated  */
+/* ensuring Ipv4 priority clients latency measurement is calculated  */
         unsigned int Ipv4macCount=0, filledClients = 0;
         while(Ipv4macCount < MAX_NUM_OF_CLIENTS)
         {
-		dbg_log(" Ipv4 value of entry = %d\n", hashLatencyTable[macCount].bHasLatencyEntry);
-                    if(hashLatencyTable[macCount].bHasLatencyEntry)
+		dbg_log(" Ipv4 value of entry = %d\n", hashLatencyTable[Ipv4macCount].bHasLatencyEntry);
+                    if(hashLatencyTable[Ipv4macCount].bHasLatencyEntry)
                             dbg_log(" true\n");
                     else
                             dbg_log("false\n");
 
-            if(hashLatencyTable[macCount].bHasLatencyEntry == true)
+            if(hashLatencyTable[Ipv4macCount].bHasLatencyEntry == true)
             {
                  dbg_log("entry registered for ipv4 \n");
                  filledClients++;
@@ -702,7 +702,7 @@ void UpdateReportingTable(int hashIndex)
 
        if(filledClients >= MAX_NUM_OF_CLIENTS && macCount > 0) {
                       dbg_log("Replacing Ipv4 entries with priority MACs\n");
-		      dbg_log(" mac address of Ipv4 in hashLatencyTable = %s\n", hashLatencyTable[new].mac);
+		      dbg_log(" mac address of Ipv4 in hashLatencyTable = %s\n", hashLatencyTable[Ipv4macCount].mac);
                       prioritymacs(hashLatencyTable, MAX_NUM_OF_CLIENTS);
                       for(int new = 0; new < MAX_NUM_OF_CLIENTS; new++)
                       {
@@ -719,18 +719,18 @@ void UpdateReportingTable(int hashIndex)
     {
 	    hashLatencyTable = Ipv6HashLatencyTable ;
 
-         /* ensuring priority clients latency measurement is calculated  */
+         /* ensuring Ipv6 priority clients latency measurement is calculated  */
             unsigned int Ipv6macCount=0;
 	    filledClients = 0;
             while(Ipv6macCount < MAX_NUM_OF_CLIENTS)
             {
-		    dbg_log(" value of Ipv6 entry = %d\n", hashLatencyTable[macCount].bHasLatencyEntry);
-		    if(hashLatencyTable[macCount].bHasLatencyEntry)
+		    dbg_log(" value of Ipv6 entry = %d\n", hashLatencyTable[Ipv6macCount].bHasLatencyEntry);
+		    if(hashLatencyTable[Ipv6macCount].bHasLatencyEntry)
 			    dbg_log(" true\n");
 		    else 
 			    dbg_log("false\n");
 
-                  if(hashLatencyTable[macCount].bHasLatencyEntry == true)
+                  if(hashLatencyTable[Ipv6macCount].bHasLatencyEntry == true)
                   {
                        dbg_log("entry registered for ipv6 \n");
                        filledClients++;
@@ -741,7 +741,7 @@ void UpdateReportingTable(int hashIndex)
 
             if(filledClients >= MAX_NUM_OF_CLIENTS && macCount > 0) {
                       dbg_log("Replacing Ipv6 priority MACs\n");
-		      dbg_log(" mac address Ipv6 in hashLatencyTable = %s\n", hashLatencyTable[new].mac);
+		      dbg_log(" mac address Ipv6 in hashLatencyTable = %s\n", hashLatencyTable[Ipv6macCount].mac);
                       prioritymacs(hashLatencyTable, MAX_NUM_OF_CLIENTS);
                       for(int new = 0; new < MAX_NUM_OF_CLIENTS; new++)
                       {
