@@ -682,8 +682,9 @@ void UpdateReportingTable(int hashIndex)
         hashLatencyTable = Ipv4HashLatencyTable ;
 
 /* ensuring Ipv4 priority clients latency measurement is calculated  */
-        unsigned int filledClients = 0;
-        for(unsigned int Ipv4macCount = 0; Ipv4macCount < MAX_NUM_OF_CLIENTS; Ipv4macCount++)
+        unsigned int Ipv4macCount;
+        unsigned int filled_clients = 0;
+        for(Ipv4macCount = 0; Ipv4macCount < MAX_NUM_OF_CLIENTS; Ipv4macCount++)
         {
 		dbg_log(" Ipv4 value of entry = %d\n", hashLatencyTable[Ipv4macCount].bHasLatencyEntry);
                     if(hashLatencyTable[Ipv4macCount].bHasLatencyEntry)
@@ -719,14 +720,15 @@ void UpdateReportingTable(int hashIndex)
 	    hashLatencyTable = Ipv6HashLatencyTable ;
 
          /* ensuring Ipv6 priority clients latency measurement is calculated  */
-            unsigned int filledClients = 0;
-            for(unsigned int Ipv6macCount = 0; Ipv6macCount < MAX_NUM_OF_CLIENTS; Ipv6macCount++)
+            unsigned int Ipv6macCount;
+            unsigned int filled_clients = 0;
+            for(Ipv6macCount = 0; Ipv6macCount < MAX_NUM_OF_CLIENTS; Ipv6macCount++)
             {
-		    dbg_log(" value of Ipv6 entry = %d\n", hashLatencyTable[Ipv6macCount].bHasLatencyEntry);
-		    if(hashLatencyTable[Ipv6macCount].bHasLatencyEntry)
-			{   dbg_log(" true\n"); }
-		    else 
-			{    dbg_log("false\n"); }
+		          dbg_log(" value of Ipv6 entry = %d\n", hashLatencyTable[Ipv6macCount].bHasLatencyEntry);
+		          if(hashLatencyTable[Ipv6macCount].bHasLatencyEntry)
+			          {   dbg_log(" true\n"); }
+		          else 
+			          {    dbg_log("false\n"); }
 
                   if(hashLatencyTable[Ipv6macCount].bHasLatencyEntry == true)
                   {
