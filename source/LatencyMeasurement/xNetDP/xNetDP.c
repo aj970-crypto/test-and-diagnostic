@@ -272,7 +272,7 @@ typedef struct LatencyTable
     Calt_Percentile_info Percentile_info[2];
 }LatencyTable;
 
-#define MAX_NUM_OF_CLIENTS 1 
+#define MAX_NUM_OF_CLIENTS 2 
 
 LatencyTable Ipv4HashLatencyTable[MAX_NUM_OF_CLIENTS];
 LatencyTable Ipv6HashLatencyTable[MAX_NUM_OF_CLIENTS];
@@ -682,8 +682,8 @@ void UpdateReportingTable(int hashIndex)
         hashLatencyTable = Ipv4HashLatencyTable ;
 
 /* ensuring Ipv4 priority clients latency measurement is calculated  */
-        unsigned int Ipv4macCount=0, filledClients = 0;
-        while(Ipv4macCount < MAX_NUM_OF_CLIENTS)
+        unsigned int filledClients = 0;
+        for(unsigned int Ipv4macCount = 0; Ipv4macCount < MAX_NUM_OF_CLIENTS; Ipv4macCount++)
         {
 		dbg_log(" Ipv4 value of entry = %d\n", hashLatencyTable[Ipv4macCount].bHasLatencyEntry);
                     if(hashLatencyTable[Ipv4macCount].bHasLatencyEntry)
@@ -696,7 +696,6 @@ void UpdateReportingTable(int hashIndex)
                  dbg_log("entry registered for ipv4 \n");
                  filledClients++;
             }
-          Ipv4macCount++;
         }
         dbg_log(" filled clients of Ipv4 = %d\n", filledClients);
 
@@ -720,8 +719,8 @@ void UpdateReportingTable(int hashIndex)
 	    hashLatencyTable = Ipv6HashLatencyTable ;
 
          /* ensuring Ipv6 priority clients latency measurement is calculated  */
-            unsigned int Ipv6macCount=0, filledClients = 0;
-            while(Ipv6macCount < MAX_NUM_OF_CLIENTS)
+            unsigned int filledClients = 0;
+            for(unsigned int Ipv6macCount = 0; Ipv6macCount < MAX_NUM_OF_CLIENTS; Ipv6macCount++)
             {
 		    dbg_log(" value of Ipv6 entry = %d\n", hashLatencyTable[Ipv6macCount].bHasLatencyEntry);
 		    if(hashLatencyTable[Ipv6macCount].bHasLatencyEntry)
@@ -734,7 +733,6 @@ void UpdateReportingTable(int hashIndex)
                        dbg_log("entry registered for ipv6 \n");
                        filledClients++;
                   }
-                  Ipv6macCount++;
             }
             dbg_log(" filled clients of ipv6= %d\n", filledClients);
 
