@@ -683,7 +683,7 @@ void UpdateReportingTable(int hashIndex)
 
 /* ensuring Ipv4 priority clients latency measurement is calculated  */
         unsigned int Ipv4macCount;
-        unsigned int filled_clients = 0;
+        unsigned int filledClients = 0;
         for(Ipv4macCount = 0; Ipv4macCount < MAX_NUM_OF_CLIENTS; Ipv4macCount++)
         {
 		dbg_log(" Ipv4 value of entry = %d\n", hashLatencyTable[Ipv4macCount].bHasLatencyEntry);
@@ -721,7 +721,7 @@ void UpdateReportingTable(int hashIndex)
 
          /* ensuring Ipv6 priority clients latency measurement is calculated  */
             unsigned int Ipv6macCount;
-            unsigned int filled_clients = 0;
+            unsigned int filledClients = 0;
             for(Ipv6macCount = 0; Ipv6macCount < MAX_NUM_OF_CLIENTS; Ipv6macCount++)
             {
 		          dbg_log(" value of Ipv6 entry = %d\n", hashLatencyTable[Ipv6macCount].bHasLatencyEntry);
