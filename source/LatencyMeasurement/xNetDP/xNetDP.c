@@ -583,7 +583,6 @@ void replacePriorityMacs(LatencyTable *hashLatencyTable,int iMaxClients)
     dbg_log("priority mac count = %d\n", g_iPriorityMacCount);
     for (int iPriMacIndex = 0; iPriMacIndex < g_iPriorityMacCount; iPriMacIndex++)
     {
-        dbg_log("iFoundIndex = %d\n", iFoundIndex);
         int iFoundIndex = -1;
 
         //Search for the priority mac in the IPv4 Latency table from iPriMacIndex to end
@@ -595,7 +594,7 @@ void replacePriorityMacs(LatencyTable *hashLatencyTable,int iMaxClients)
                 break;
             }
         }
-
+        dbg_log("iFoundIndex = %d\n", iFoundIndex);
         if (-1 == iFoundIndex)
         {
             dbg_log(" Missing MAC entry in top clients \n", g_cMacAddresses[iPriMacIndex]);
@@ -628,7 +627,7 @@ void UpdateReportingTable(int hashIndex)
             replacePriorityMacs(hashLatencyTable,MAX_NUM_OF_CLIENTS);
             for(int new = 0; new < MAX_NUM_OF_CLIENTS; new++)
             {
-			      dbg_log("updated table Ipv6 = %s, %lu, %lld, %lld, %lld, %lld, %lld, %lld, %lld, %lld \n", hashLatencyTable[new].mac, hashLatencyTable[new].num_of_flows,
+			      dbg_log("updated table Ipv4 = %s, %lu, %lld, %lld, %lld, %lld, %lld, %lld, %lld, %lld \n", hashLatencyTable[new].mac, hashLatencyTable[new].num_of_flows,
                                    hashLatencyTable[new].SynAckMinLatency_sec,hashLatencyTable[new].SynAckMinLatency_usec,
                                    hashLatencyTable[new].SynAckMaxLatency_sec,hashLatencyTable[new].SynAckMaxLatency_usec,
                                    hashLatencyTable[new].AckMinLatency_sec,hashLatencyTable[new].AckMinLatency_usec,
