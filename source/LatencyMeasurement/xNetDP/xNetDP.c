@@ -579,8 +579,11 @@ long long latency_in_microsecond(long long latency_sec,long long latency_usec)
 
 void replacePriorityMacs(LatencyTable *hashLatencyTable,int iMaxClients)
 {
+    dbg_log("Entered into %s\n", __FUNCTION__);
+    dbg_log("priority mac count = %d\n", g_iPriorityMacCount);
     for (int iPriMacIndex = 0; iPriMacIndex < g_iPriorityMacCount; iPriMacIndex++)
     {
+        dbg_log("iFoundIndex = %d\n", iFoundIndex);
         int iFoundIndex = -1;
 
         //Search for the priority mac in the IPv4 Latency table from iPriMacIndex to end
@@ -595,12 +598,14 @@ void replacePriorityMacs(LatencyTable *hashLatencyTable,int iMaxClients)
 
         if (-1 == iFoundIndex)
         {
+            dbg_log(" Missing MAC entry in top clients \n", g_cMacAddresses[iPriMacIndex]);
            memset(&hashLatencyTable[iPriMacIndex], 0, sizeof(LatencyTable));
            snprintf(hashLatencyTable[iPriMacIndex].mac, sizeof(hashLatencyTable[iPriMacIndex].mac), "%s", g_cMacAddresses[iPriMacIndex]);
-           hashLatencyTable[iPriMacIndex].bHasLatencyEntry = false;
+           hashLatencyTable[iPriMacIndex].bHasLatencyEntry = true;
         }
         else if (iFoundIndex != iPriMacIndex)
         {
+            dbg_log(" swapping MAC \n");
             //Swap the entries
             LatencyTable temp = hashLatencyTable[iPriMacIndex];
             hashLatencyTable[iPriMacIndex] = hashLatencyTable[iFoundIndex];
@@ -618,9 +623,17 @@ void UpdateReportingTable(int hashIndex)
     if (hashArray[hashIndex].ip_type == IPV4 )
     {
         hashLatencyTable = Ipv4HashLatencyTable ;
-        if (MAX_NUM_OF_CLIENTS >= gHashLatTabIpv4MacCount)
+        if (gHashLatTabIpv4MacCount >= MAX_NUM_OF_CLIENTS && g_iPriorityMacCount > 0)
         {
-            replacePriorityMacs(Ipv4HashLatencyTable,MAX_NUM_OF_CLIENTS);
+            replacePriorityMacs(hashLatencyTable,MAX_NUM_OF_CLIENTS);
+            for(int new = 0; new < MAX_NUM_OF_CLIENTS; new++)
+            {
+			      dbg_log("updated table Ipv6 = %s, %lu, %lld, %lld, %lld, %lld, %lld, %lld, %lld, %lld \n", hashLatencyTable[new].mac, hashLatencyTable[new].num_of_flows,
+                                   hashLatencyTable[new].SynAckMinLatency_sec,hashLatencyTable[new].SynAckMinLatency_usec,
+                                   hashLatencyTable[new].SynAckMaxLatency_sec,hashLatencyTable[new].SynAckMaxLatency_usec,
+                                   hashLatencyTable[new].AckMinLatency_sec,hashLatencyTable[new].AckMinLatency_usec,
+                                   hashLatencyTable[new].AckMaxLatency_sec,hashLatencyTable[new].AckMaxLatency_usec);
+            }
         }
     }
 
@@ -774,7 +787,10 @@ void UpdateReportingTable(int hashIndex)
 
         }
         if (hashArray[hashIndex].ip_type == IPV4 )
-            gHashLatTabIpv4MacCount++;
+        {
+            dbg_log("Ipv4 mac entry = %s\n", hashArray[hashIndex].mac);
+            gHashLatTabIpv4MacCount++;           
+        }    
         dbg_log("New entry for mac %s\n",hashArray[hashIndex].mac);
         dbg_log("==========gHashLatTabIpv4MacCount:%d\n",gHashLatTabIpv4MacCount);
         strncpy(hashLatencyTable[index].mac,hashArray[hashIndex].mac,sizeof(hashArray[hashIndex].mac)-1);
@@ -982,6 +998,7 @@ void* LatencyReportThread(void* arg)
                         memset(&Ipv4HashLatencyTable[i],0,sizeof(LatencyTable));
                         dbg_log(">>>>>>>>>>>>gHashLatTabIpv4MacCount:%d\n",gHashLatTabIpv4MacCount);
                         gHashLatTabIpv4MacCount--;
+                        dbg_log(">>>>>>>>>>>>gHashLatTabIpv4MacCount after reduction:%d\n",gHashLatTabIpv4MacCount);
                         strncat(tmp_report_buf,str,(MAX_REPORT_SIZE-strlen(tmp_report_buf)-1));
                         strncat(tmp_report_buf,port_buff,(MAX_REPORT_SIZE-strlen(tmp_report_buf)-1));
                         num_of_ipv4_clients++;
@@ -1607,8 +1624,8 @@ int main(int argc,char **argv)
   //perror( "server: Failed to create message queue:" );
     // display the message
    // printf("Data Received is : %s \n", message.mesg_text);
-    //dbg_log("Data Received is : %d \nFLAG: %d \nACK: %u\nSeq %u\n TS: %lld.%06lld\n", 
-    //                message.mesg_type,message.th_flag,message.th_ack,message.th_seq,message.tv_sec,message.tv_usec);
+    dbg_log("Data Received is : %d \nFLAG: %d \nACK: %u\nSeq %u\n TS: %lld.%06lld\n", 
+                    message.mesg_type,message.th_flag,message.th_ack,message.th_seq,message.tv_sec,message.tv_usec);
     if((message.th_flag & SYN_ACK) == SYN_ACK)
     {
         //insert(message.th_ack,message);
