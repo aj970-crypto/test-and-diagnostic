@@ -264,7 +264,7 @@ typedef struct LatencyTable
     Calt_Percentile_info Percentile_info[2];
 }LatencyTable;
 
-#define MAX_NUM_OF_CLIENTS 2 
+#define MAX_NUM_OF_CLIENTS 3
 
 LatencyTable Ipv4HashLatencyTable[MAX_NUM_OF_CLIENTS];
 LatencyTable Ipv6HashLatencyTable[MAX_NUM_OF_CLIENTS];
@@ -639,10 +639,23 @@ void UpdateReportingTable(int hashIndex)
     else
     {
         hashLatencyTable = Ipv6HashLatencyTable ;
+        if (gHashLatTabIpv6MacCount >= MAX_NUM_OF_CLIENTS && g_iPriorityMacCount > 0)
+        {
+            replacePriorityMacs(hashLatencyTable,MAX_NUM_OF_CLIENTS);
+            for(int new = 0; new < MAX_NUM_OF_CLIENTS; new++)
+            {
+			      dbg_log("updated table Ipv6 = %s, %lu, %lld, %lld, %lld, %lld, %lld, %lld, %lld, %lld \n", hashLatencyTable[new].mac, hashLatencyTable[new].num_of_flows,
+                                   hashLatencyTable[new].SynAckMinLatency_sec,hashLatencyTable[new].SynAckMinLatency_usec,
+                                   hashLatencyTable[new].SynAckMaxLatency_sec,hashLatencyTable[new].SynAckMaxLatency_usec,
+                                   hashLatencyTable[new].AckMinLatency_sec,hashLatencyTable[new].AckMinLatency_usec,
+                                   hashLatencyTable[new].AckMaxLatency_sec,hashLatencyTable[new].AckMaxLatency_usec);
+            }
+        }
     }
     if ( index < MAX_NUM_OF_CLIENTS )
     {
 	    dbg_log(" hashLatency table mac : %s\n", hashLatencyTable[index].mac);
+        dbg_log(" hash array mac : %s\n", hashArray[hashIndex].mac);
        
         if (strcmp(hashLatencyTable[index].mac,hashArray[hashIndex].mac) == 0)
         {
@@ -789,7 +802,11 @@ void UpdateReportingTable(int hashIndex)
         {
             dbg_log("Ipv4 mac entry = %s\n", hashArray[hashIndex].mac);
             gHashLatTabIpv4MacCount++;           
-        }    
+        }
+        else{
+            dbg_log("Ipv6 mac entry = %s\n", hashArray[hashIndex].mac);
+            gHashLatTabIpv6MacCount++;
+        }  
         dbg_log("New entry for mac %s\n",hashArray[hashIndex].mac);
         dbg_log("==========gHashLatTabIpv4MacCount:%d\n",gHashLatTabIpv4MacCount);
         strncpy(hashLatencyTable[index].mac,hashArray[hashIndex].mac,sizeof(hashArray[hashIndex].mac)-1);
