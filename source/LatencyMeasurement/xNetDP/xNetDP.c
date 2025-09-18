@@ -974,8 +974,8 @@ void* LatencyReportThread(void* arg)
             if(Ipv4HashLatencyTable[i].bHasLatencyEntry == true)
             {
                 printf("Index i is %d,Ipv4HashLatencyTable[i].bHasLatencyEntry\n",i);
-		long long result = latency_in_microsecond(Ipv4HashLatencyTable[i].SynAckAggregatedLatency_sec,Ipv4HashLatencyTable[i].SynAckAggregatedLatency_usec);
-                dbg_log("Num of rows = %lu, result = %lld \n", Ipv4HashLatencyTable[i].num_of_flows, result);
+		long long result = latency_in_microsecond(Ipv4HashLatencyTable[i].SynAckAggregatedLatency_sec,Ipv4HashLatencyTable[i].SynAckAggregatedLatency_usec)/Ipv4HashLatencyTable[i].num_of_flows;
+                dbg_log("Num of flows = %lu, result = %lld \n", Ipv4HashLatencyTable[i].num_of_flows, result);
                 tempCount = snprintf(str,sizeof(str),";%s;%lu,%lld,%lld,%lld,%lld,%lld,%lld,%lld,%lld;",Ipv4HashLatencyTable[i].mac,Ipv4HashLatencyTable[i].num_of_flows,
                     latency_in_microsecond(Ipv4HashLatencyTable[i].SynAckMinLatency_sec,Ipv4HashLatencyTable[i].SynAckMinLatency_usec),
                     latency_in_microsecond(Ipv4HashLatencyTable[i].SynAckMaxLatency_sec,Ipv4HashLatencyTable[i].SynAckMaxLatency_usec),
@@ -1051,8 +1051,6 @@ void* LatencyReportThread(void* arg)
             memset(port_buff,0,sizeof(port_buff));
             if(Ipv6HashLatencyTable[i].bHasLatencyEntry == true)
             {
-		    long long result = latency_in_microsecond(Ipv4HashLatencyTable[i].SynAckAggregatedLatency_sec,Ipv4HashLatencyTable[i].SynAckAggregatedLatency_usec);
-                dbg_log("Num of rows = %lu, result = %lld \n", Ipv4HashLatencyTable[i].num_of_flows, result);
                 tempCount = snprintf(str,sizeof(str),";%s;%lu,%lld,%lld,%lld,%lld,%lld,%lld,%lld,%lld;",Ipv6HashLatencyTable[i].mac,Ipv6HashLatencyTable[i].num_of_flows,
                     latency_in_microsecond(Ipv6HashLatencyTable[i].SynAckMinLatency_sec,Ipv6HashLatencyTable[i].SynAckMinLatency_usec),
                     latency_in_microsecond(Ipv6HashLatencyTable[i].SynAckMaxLatency_sec,Ipv6HashLatencyTable[i].SynAckMaxLatency_usec),
@@ -1085,7 +1083,11 @@ void* LatencyReportThread(void* arg)
                     {
                         byteCount += tempCount+port_sz_count;
                         dbg_log("Flush Ipv6HashLatencyTable\n");
+                        dbg_log("Flush Ipv6HashLatencyTable:%s\n",Ipv6HashLatencyTable[i].mac);
                         memset(&Ipv6HashLatencyTable[i],0,sizeof(LatencyTable));
+                        dbg_log(">>>>>>>>>>>>gHashLatTabIpv6MacCount:%d\n",gHashLatTabIpv6MacCount);
+                        gHashLatTabIpv6MacCount--;
+                        dbg_log(">>>>>>>>>>>>gHashLatTabIpv6MacCount after reduction:%d\n",gHashLatTabIpv6MacCount);
                         strncat(tmp_report_buf,str,(MAX_REPORT_SIZE-strlen(tmp_report_buf)-1));
                         strncat(tmp_report_buf,port_buff,(MAX_REPORT_SIZE-strlen(tmp_report_buf)-1));
                         num_of_ipv6_clients++;
