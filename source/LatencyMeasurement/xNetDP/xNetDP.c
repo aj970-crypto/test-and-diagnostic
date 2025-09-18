@@ -809,6 +809,7 @@ void UpdateReportingTable(int hashIndex)
         }  
         dbg_log("New entry for mac %s\n",hashArray[hashIndex].mac);
         dbg_log("==========gHashLatTabIpv4MacCount:%d\n",gHashLatTabIpv4MacCount);
+        dbg_log("==========gHashLatTabIpv6MacCount:%d\n",gHashLatTabIpv6MacCount);
         strncpy(hashLatencyTable[index].mac,hashArray[hashIndex].mac,sizeof(hashArray[hashIndex].mac)-1);
 
         hashLatencyTable[index].SynAckMinLatency_sec = hashArray[hashIndex].latency_sec;
@@ -973,14 +974,11 @@ void* LatencyReportThread(void* arg)
             memset(str,0,hashSize);
             if(Ipv4HashLatencyTable[i].bHasLatencyEntry == true)
             {
-                printf("Index i is %d,Ipv4HashLatencyTable[i].bHasLatencyEntry\n",i);
-		long long result = latency_in_microsecond(Ipv4HashLatencyTable[i].SynAckAggregatedLatency_sec,Ipv4HashLatencyTable[i].SynAckAggregatedLatency_usec)/Ipv4HashLatencyTable[i].num_of_flows;
-                dbg_log("Num of flows = %lu, result = %lld \n", Ipv4HashLatencyTable[i].num_of_flows, result);
+                dbg_log("Index i is %d,Ipv4HashLatencyTable[i].bHasLatencyEntry\n",i);
                 tempCount = snprintf(str,sizeof(str),";%s;%lu,%lld,%lld,%lld,%lld,%lld,%lld,%lld,%lld;",Ipv4HashLatencyTable[i].mac,Ipv4HashLatencyTable[i].num_of_flows,
                     latency_in_microsecond(Ipv4HashLatencyTable[i].SynAckMinLatency_sec,Ipv4HashLatencyTable[i].SynAckMinLatency_usec),
                     latency_in_microsecond(Ipv4HashLatencyTable[i].SynAckMaxLatency_sec,Ipv4HashLatencyTable[i].SynAckMaxLatency_usec),
 		    Ipv4HashLatencyTable[i].num_of_flows ?
-
                     latency_in_microsecond(Ipv4HashLatencyTable[i].SynAckAggregatedLatency_sec,Ipv4HashLatencyTable[i].SynAckAggregatedLatency_usec)/Ipv4HashLatencyTable[i].num_of_flows : -1,
                     Ipv4HashLatencyTable[i].SynAckPercentileLatency,
                     latency_in_microsecond(Ipv4HashLatencyTable[i].AckMinLatency_sec,Ipv4HashLatencyTable[i].AckMinLatency_usec),
@@ -989,7 +987,7 @@ void* LatencyReportThread(void* arg)
                     latency_in_microsecond(Ipv4HashLatencyTable[i].AckAggregatedLatency_sec,Ipv4HashLatencyTable[i].AckAggregatedLatency_usec)/Ipv4HashLatencyTable[i].num_of_flows : -1,
                     Ipv4HashLatencyTable[i].AckPercentileLatency
                     );
-            
+                      
                 for(int port_count=0;port_count < Ipv4HashLatencyTable[i].num_of_ports;port_count++)
                 {
                     memset(buf,0,sizeof(buf));
