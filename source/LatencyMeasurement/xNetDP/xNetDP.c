@@ -55,6 +55,8 @@
 #define MAC_ADDRESS_LEN 18
 char g_cMacAddresses[MAX_MAC_ADDRESSES][MAC_ADDRESS_LEN];
 int g_iPriorityMacCount = 0;
+static bool bPriorityMacChanged = false;
+static time_t processStartTime = 0;
 /* ------------------ */
 
 #define swap(T, x, y) \
@@ -622,7 +624,7 @@ void UpdateReportingTable(int hashIndex)
     if (hashArray[hashIndex].ip_type == IPV4 )
     {
         hashLatencyTable = Ipv4HashLatencyTable ;
-        if (gHashLatTabIpv4MacCount >= MAX_NUM_OF_CLIENTS && g_iPriorityMacCount > 0)
+        /*if (gHashLatTabIpv4MacCount >= MAX_NUM_OF_CLIENTS && g_iPriorityMacCount > 0)
         {
             replacePriorityMacs(hashLatencyTable,MAX_NUM_OF_CLIENTS);
             for(int new = 0; new < MAX_NUM_OF_CLIENTS; new++)
@@ -633,13 +635,13 @@ void UpdateReportingTable(int hashIndex)
                                    hashLatencyTable[new].AckMinLatency_sec,hashLatencyTable[new].AckMinLatency_usec,
                                    hashLatencyTable[new].AckMaxLatency_sec,hashLatencyTable[new].AckMaxLatency_usec);
             }
-        }
+        }*/
     }
 
     else
     {
         hashLatencyTable = Ipv6HashLatencyTable ;
-        if (gHashLatTabIpv6MacCount >= MAX_NUM_OF_CLIENTS && g_iPriorityMacCount > 0)
+      /* if (gHashLatTabIpv6MacCount >= MAX_NUM_OF_CLIENTS && g_iPriorityMacCount > 0)
         {
             replacePriorityMacs(hashLatencyTable,MAX_NUM_OF_CLIENTS);
             for(int new = 0; new < MAX_NUM_OF_CLIENTS; new++)
@@ -650,8 +652,30 @@ void UpdateReportingTable(int hashIndex)
                                    hashLatencyTable[new].AckMinLatency_sec,hashLatencyTable[new].AckMinLatency_usec,
                                    hashLatencyTable[new].AckMaxLatency_sec,hashLatencyTable[new].AckMaxLatency_usec);
             }
-        }
+        } */
     }
+
+    time_t currentTime = time(NULL);
+  //  bool isTimeElapsed = difftime(currentTime, lastPriorityMacUpdateTime) >= PRIORITY_MAC_REFRESH_INTERVAL;
+
+    if ((bPriorityMacChanged || currentTime >= processStartTime + args.report_interval) &&
+        g_iPriorityMacCount > 0 &&
+        (gHashLatTabIpv4MacCount || gHashLatTabIpv6MacCount >= MAX_NUM_OF_CLIENTS))
+    {
+        dbg_log("Calling replacePriorityMacs due to %s\n", bPriorityMacChanged ? "MAC change" : "time interval");
+        replacePriorityMacs(hashLatencyTable, MAX_NUM_OF_CLIENTS);
+        processStartTime = currentTime;  // Reset for next interval
+        bPriorityMacChanged = false;
+        for(int new = 0; new < 5; new++)
+            {
+			      dbg_log("updated table = %s, %lu, %lld, %lld, %lld, %lld, %lld, %lld, %lld, %lld \n", hashLatencyTable[new].mac, hashLatencyTable[new].num_of_flows,
+                                   hashLatencyTable[new].SynAckMinLatency_sec,hashLatencyTable[new].SynAckMinLatency_usec,
+                                   hashLatencyTable[new].SynAckMaxLatency_sec,hashLatencyTable[new].SynAckMaxLatency_usec,
+                                   hashLatencyTable[new].AckMinLatency_sec,hashLatencyTable[new].AckMinLatency_usec,
+                                   hashLatencyTable[new].AckMaxLatency_sec,hashLatencyTable[new].AckMaxLatency_usec);
+            }
+    }
+
     if ( index < MAX_NUM_OF_CLIENTS )
     {
 	    dbg_log(" hashLatency table mac : %s\n", hashLatencyTable[index].mac);
@@ -1459,10 +1483,19 @@ void PrioritizeEventHandler(rbusHandle_t handle, rbusEvent_t const* event, rbusE
     }
     // Log the received string
     dbg_log("Received event %s: %s\n", pEventName, pRuleString);
+    if (strlen(pRuleString) == 0)
+    {
+        dbg_log("Priority MAC list is empty. Clearing priority MACs.\n");
+        g_iPriorityMacCount = 0;
+        memset(g_cMacAddresses, 0, sizeof(g_cMacAddresses));
+        bPriorityMacChanged = false; // No need to trigger replacement
+        return;
+    }
     char* pRuleStrCpy = strdup(pRuleString);
     parseActiveRules(pRuleStrCpy);
     free(pRuleStrCpy);
 
+    bPriorityMacChanged = true;
 }
 
 // calling subscribe API
@@ -1523,7 +1556,8 @@ void* retry_subscription_thread(void *arg)
 int main(int argc,char **argv)
 {
 
-      char *progname;
+    processStartTime = time(NULL);
+    char *progname;
   char *p;
  
   progname = ((p = strrchr (argv[0], '/')) ? ++p : argv[0]);
