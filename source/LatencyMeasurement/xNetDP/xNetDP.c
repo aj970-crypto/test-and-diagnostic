@@ -47,7 +47,6 @@
 #define MAX_SAMPLE 50
 #define MIN_SAMPLE 10
 
-/* Subscribe changes */
 #define ACTIVE_RULES_PARAM "Device.QOS.X_RDK_DscpControlPerClient.ActiveRules"
 #define RETRY_INTERVAL_SECONDS 5
 #define MAX_RETRY_TIME 600
@@ -55,10 +54,13 @@
 #define MAC_ADDRESS_LEN 18
 char g_cMacAddresses[MAX_MAC_ADDRESSES][MAC_ADDRESS_LEN];
 int g_iPriorityMacCount = 0;
-static bool bPriorityMacChanged = false;
-static time_t processStartTime = 0;
-/* ------------------ */
 
+typedef struct
+{
+    bool  bIsPriorityMacsUpdated;
+    bool  bIsPriorityMacsReplaced;
+}priorityMacUpdateStatus;
+priorityMacUpdateStatus sPriorityMacUpdateStatus = {false,false};
 #define swap(T, x, y) \
     {                 \
         T tmp = x;    \
@@ -254,6 +256,7 @@ typedef struct LatencyTable
     long long AckPercentileLatency;
     unsigned long num_of_flows; 
     bool   bHasLatencyEntry;
+    //bool  bIsPrioritized
     int port[MAX_PORTS];
     int num_of_ports;
     long long wanSamples[BUF_SIZE];
@@ -266,7 +269,7 @@ typedef struct LatencyTable
     Calt_Percentile_info Percentile_info[2];
 }LatencyTable;
 
-#define MAX_NUM_OF_CLIENTS 2
+#define MAX_NUM_OF_CLIENTS 3
 
 LatencyTable Ipv4HashLatencyTable[MAX_NUM_OF_CLIENTS];
 LatencyTable Ipv6HashLatencyTable[MAX_NUM_OF_CLIENTS];
@@ -581,8 +584,6 @@ long long latency_in_microsecond(long long latency_sec,long long latency_usec)
 
 void replacePriorityMacs(LatencyTable *hashLatencyTable,int iMaxClients)
 {
-    dbg_log("Entered into %s\n", __FUNCTION__);
-    dbg_log("priority mac count = %d\n", g_iPriorityMacCount);
     for (int iPriMacIndex = 0; iPriMacIndex < g_iPriorityMacCount; iPriMacIndex++)
     {
         int iFoundIndex = -1;
@@ -596,21 +597,23 @@ void replacePriorityMacs(LatencyTable *hashLatencyTable,int iMaxClients)
                 break;
             }
         }
-        dbg_log("iFoundIndex = %d\n", iFoundIndex);
+
         if (-1 == iFoundIndex)
         {
-            dbg_log(" Missing MAC entry in top clients \n", g_cMacAddresses[iPriMacIndex]);
            memset(&hashLatencyTable[iPriMacIndex], 0, sizeof(LatencyTable));
            snprintf(hashLatencyTable[iPriMacIndex].mac, sizeof(hashLatencyTable[iPriMacIndex].mac), "%s", g_cMacAddresses[iPriMacIndex]);
            hashLatencyTable[iPriMacIndex].bHasLatencyEntry = true;
+           //hashLatencyTable[iPriMacIndex].bIsPrioritized = true;
+           sPriorityMacUpdateStatus.bIsPriorityMacsReplaced = true;
         }
         else if (iFoundIndex != iPriMacIndex)
         {
-            dbg_log(" swapping MAC \n");
             //Swap the entries
             LatencyTable temp = hashLatencyTable[iPriMacIndex];
             hashLatencyTable[iPriMacIndex] = hashLatencyTable[iFoundIndex];
             hashLatencyTable[iFoundIndex] = temp;
+            //hashLatencyTable[iPriMacIndex].bIsPrioritized = true;
+            sPriorityMacUpdateStatus.bIsPriorityMacsReplaced = true;
         }
     }
 }
@@ -624,62 +627,21 @@ void UpdateReportingTable(int hashIndex)
     if (hashArray[hashIndex].ip_type == IPV4 )
     {
         hashLatencyTable = Ipv4HashLatencyTable ;
-        /*if (gHashLatTabIpv4MacCount >= MAX_NUM_OF_CLIENTS && g_iPriorityMacCount > 0)
-        {
-            replacePriorityMacs(hashLatencyTable,MAX_NUM_OF_CLIENTS);
-            for(int new = 0; new < MAX_NUM_OF_CLIENTS; new++)
-            {
-			      dbg_log("updated table Ipv4 = %s, %lu, %lld, %lld, %lld, %lld, %lld, %lld, %lld, %lld \n", hashLatencyTable[new].mac, hashLatencyTable[new].num_of_flows,
-                                   hashLatencyTable[new].SynAckMinLatency_sec,hashLatencyTable[new].SynAckMinLatency_usec,
-                                   hashLatencyTable[new].SynAckMaxLatency_sec,hashLatencyTable[new].SynAckMaxLatency_usec,
-                                   hashLatencyTable[new].AckMinLatency_sec,hashLatencyTable[new].AckMinLatency_usec,
-                                   hashLatencyTable[new].AckMaxLatency_sec,hashLatencyTable[new].AckMaxLatency_usec);
-            }
-        }*/
     }
-
     else
     {
         hashLatencyTable = Ipv6HashLatencyTable ;
-      /* if (gHashLatTabIpv6MacCount >= MAX_NUM_OF_CLIENTS && g_iPriorityMacCount > 0)
-        {
-            replacePriorityMacs(hashLatencyTable,MAX_NUM_OF_CLIENTS);
-            for(int new = 0; new < MAX_NUM_OF_CLIENTS; new++)
-            {
-			      dbg_log("updated table Ipv6 = %s, %lu, %lld, %lld, %lld, %lld, %lld, %lld, %lld, %lld \n", hashLatencyTable[new].mac, hashLatencyTable[new].num_of_flows,
-                                   hashLatencyTable[new].SynAckMinLatency_sec,hashLatencyTable[new].SynAckMinLatency_usec,
-                                   hashLatencyTable[new].SynAckMaxLatency_sec,hashLatencyTable[new].SynAckMaxLatency_usec,
-                                   hashLatencyTable[new].AckMinLatency_sec,hashLatencyTable[new].AckMinLatency_usec,
-                                   hashLatencyTable[new].AckMaxLatency_sec,hashLatencyTable[new].AckMaxLatency_usec);
-            }
-        } */
     }
 
-    time_t currentTime = time(NULL);
-  //  bool isTimeElapsed = difftime(currentTime, lastPriorityMacUpdateTime) >= PRIORITY_MAC_REFRESH_INTERVAL;
-
-    if ((bPriorityMacChanged || currentTime >= processStartTime + args.report_interval) &&
-        g_iPriorityMacCount > 0 &&
-        (gHashLatTabIpv4MacCount || gHashLatTabIpv6MacCount >= MAX_NUM_OF_CLIENTS))
+    if (g_iPriorityMacCount > 0 && (gHashLatTabIpv4MacCount >= MAX_NUM_OF_CLIENTS || gHashLatTabIpv6MacCount >= MAX_NUM_OF_CLIENTS))
     {
-        dbg_log("Calling replacePriorityMacs due to %s\n", bPriorityMacChanged ? "MAC change" : "time interval");
-        replacePriorityMacs(hashLatencyTable, MAX_NUM_OF_CLIENTS);
-        processStartTime = currentTime;  // Reset for next interval
-        bPriorityMacChanged = false;
-        for(int new = 0; new < 5; new++)
-            {
-			      dbg_log("updated table = %s, %lu, %lld, %lld, %lld, %lld, %lld, %lld, %lld, %lld \n", hashLatencyTable[new].mac, hashLatencyTable[new].num_of_flows,
-                                   hashLatencyTable[new].SynAckMinLatency_sec,hashLatencyTable[new].SynAckMinLatency_usec,
-                                   hashLatencyTable[new].SynAckMaxLatency_sec,hashLatencyTable[new].SynAckMaxLatency_usec,
-                                   hashLatencyTable[new].AckMinLatency_sec,hashLatencyTable[new].AckMinLatency_usec,
-                                   hashLatencyTable[new].AckMaxLatency_sec,hashLatencyTable[new].AckMaxLatency_usec);
-            }
+        if (false == sPriorityMacUpdateStatus.bIsPriorityMacsReplaced && true == sPriorityMacUpdateStatus.bIsPriorityMacsUpdated)
+        {
+            replacePriorityMacs(hashLatencyTable, MAX_NUM_OF_CLIENTS);
+        }
     }
-
     if ( index < MAX_NUM_OF_CLIENTS )
     {
-	    dbg_log(" hashLatency table mac : %s\n", hashLatencyTable[index].mac);
-        dbg_log(" hash array mac : %s\n", hashArray[hashIndex].mac);
        
         if (strcmp(hashLatencyTable[index].mac,hashArray[hashIndex].mac) == 0)
         {
@@ -823,17 +785,9 @@ void UpdateReportingTable(int hashIndex)
 
         }
         if (hashArray[hashIndex].ip_type == IPV4 )
-        {
-            dbg_log("Ipv4 mac entry = %s\n", hashArray[hashIndex].mac);
-            gHashLatTabIpv4MacCount++;           
-        }
-        else{
-            dbg_log("Ipv6 mac entry = %s\n", hashArray[hashIndex].mac);
-            gHashLatTabIpv6MacCount++;
-        }  
+            gHashLatTabIpv4MacCount++;
         dbg_log("New entry for mac %s\n",hashArray[hashIndex].mac);
         dbg_log("==========gHashLatTabIpv4MacCount:%d\n",gHashLatTabIpv4MacCount);
-        dbg_log("==========gHashLatTabIpv6MacCount:%d\n",gHashLatTabIpv6MacCount);
         strncpy(hashLatencyTable[index].mac,hashArray[hashIndex].mac,sizeof(hashArray[hashIndex].mac)-1);
 
         hashLatencyTable[index].SynAckMinLatency_sec = hashArray[hashIndex].latency_sec;
@@ -989,6 +943,7 @@ void* LatencyReportThread(void* arg)
         dbg_log("args.report_interval is %d\n",args.report_interval);
         sleep(args.report_interval);
         // display();
+        sPriorityMacUpdateStatus.bIsPriorityMacsReplaced = false;
 
         pthread_mutex_lock(&latency_report_lock);
         while(i < MAX_NUM_OF_CLIENTS)
@@ -1003,6 +958,7 @@ void* LatencyReportThread(void* arg)
                     latency_in_microsecond(Ipv4HashLatencyTable[i].SynAckMinLatency_sec,Ipv4HashLatencyTable[i].SynAckMinLatency_usec),
                     latency_in_microsecond(Ipv4HashLatencyTable[i].SynAckMaxLatency_sec,Ipv4HashLatencyTable[i].SynAckMaxLatency_usec),
 		    Ipv4HashLatencyTable[i].num_of_flows ?
+
                     latency_in_microsecond(Ipv4HashLatencyTable[i].SynAckAggregatedLatency_sec,Ipv4HashLatencyTable[i].SynAckAggregatedLatency_usec)/Ipv4HashLatencyTable[i].num_of_flows : -1,
                     Ipv4HashLatencyTable[i].SynAckPercentileLatency,
                     latency_in_microsecond(Ipv4HashLatencyTable[i].AckMinLatency_sec,Ipv4HashLatencyTable[i].AckMinLatency_usec),
@@ -1011,7 +967,7 @@ void* LatencyReportThread(void* arg)
                     latency_in_microsecond(Ipv4HashLatencyTable[i].AckAggregatedLatency_sec,Ipv4HashLatencyTable[i].AckAggregatedLatency_usec)/Ipv4HashLatencyTable[i].num_of_flows : -1,
                     Ipv4HashLatencyTable[i].AckPercentileLatency
                     );
-                      
+            
                 for(int port_count=0;port_count < Ipv4HashLatencyTable[i].num_of_ports;port_count++)
                 {
                     memset(buf,0,sizeof(buf));
@@ -1036,7 +992,6 @@ void* LatencyReportThread(void* arg)
                         memset(&Ipv4HashLatencyTable[i],0,sizeof(LatencyTable));
                         dbg_log(">>>>>>>>>>>>gHashLatTabIpv4MacCount:%d\n",gHashLatTabIpv4MacCount);
                         gHashLatTabIpv4MacCount--;
-                        dbg_log(">>>>>>>>>>>>gHashLatTabIpv4MacCount after reduction:%d\n",gHashLatTabIpv4MacCount);
                         strncat(tmp_report_buf,str,(MAX_REPORT_SIZE-strlen(tmp_report_buf)-1));
                         strncat(tmp_report_buf,port_buff,(MAX_REPORT_SIZE-strlen(tmp_report_buf)-1));
                         num_of_ipv4_clients++;
@@ -1105,11 +1060,7 @@ void* LatencyReportThread(void* arg)
                     {
                         byteCount += tempCount+port_sz_count;
                         dbg_log("Flush Ipv6HashLatencyTable\n");
-                        dbg_log("Flush Ipv6HashLatencyTable:%s\n",Ipv6HashLatencyTable[i].mac);
                         memset(&Ipv6HashLatencyTable[i],0,sizeof(LatencyTable));
-                        dbg_log(">>>>>>>>>>>>gHashLatTabIpv6MacCount:%d\n",gHashLatTabIpv6MacCount);
-                        gHashLatTabIpv6MacCount--;
-                        dbg_log(">>>>>>>>>>>>gHashLatTabIpv6MacCount after reduction:%d\n",gHashLatTabIpv6MacCount);
                         strncat(tmp_report_buf,str,(MAX_REPORT_SIZE-strlen(tmp_report_buf)-1));
                         strncat(tmp_report_buf,port_buff,(MAX_REPORT_SIZE-strlen(tmp_report_buf)-1));
                         num_of_ipv6_clients++;
@@ -1377,7 +1328,6 @@ void rbusInit(char *progname)
                return ;
          }    
 }
-
 /* Subscribe changes */
 
 // Validates the format of a MAC address (e.g., XX:XX:XX:XX:XX:XX)
@@ -1408,6 +1358,7 @@ void parseActiveRules(char* pRuleString)
     char* pMac_saveptr = NULL;
 
     // Reset global variables
+
     g_iPriorityMacCount = 0; // Clear previous entries
     memset(g_cMacAddresses, 0, sizeof(g_cMacAddresses));
     pToken = strtok_r(pRuleString, cRule, &pRule_saveptr);
@@ -1439,6 +1390,8 @@ void parseActiveRules(char* pRuleString)
                     strncpy(g_cMacAddresses[g_iPriorityMacCount], pMac, MAC_ADDRESS_LEN);
                     g_cMacAddresses[g_iPriorityMacCount][MAC_ADDRESS_LEN - 1] = '\0';
                     g_iPriorityMacCount++;
+                    sPriorityMacUpdateStatus.bIsPriorityMacsUpdated = TRUE; // Mark that we have updates
+                    sPriorityMacUpdateStatus.bIsPriorityMacsReplaced = FALSE;
                 }
             }
             else
@@ -1463,6 +1416,7 @@ void PrioritizeEventHandler(rbusHandle_t handle, rbusEvent_t const* event, rbusE
     const char* pEventName = event->name;
     rbusValue_t rbusValue = NULL;
 
+    sPriorityMacUpdateStatus.bIsPriorityMacsUpdated = FALSE;
     // Try to get initialValue first
     rbusValue = rbusObject_GetValue(event->data, "initialValue");
     if (!rbusValue)
@@ -1488,14 +1442,12 @@ void PrioritizeEventHandler(rbusHandle_t handle, rbusEvent_t const* event, rbusE
         dbg_log("Priority MAC list is empty. Clearing priority MACs.\n");
         g_iPriorityMacCount = 0;
         memset(g_cMacAddresses, 0, sizeof(g_cMacAddresses));
-        bPriorityMacChanged = false; // No need to trigger replacement
         return;
     }
     char* pRuleStrCpy = strdup(pRuleString);
     parseActiveRules(pRuleStrCpy);
     free(pRuleStrCpy);
 
-    bPriorityMacChanged = true;
 }
 
 // calling subscribe API
@@ -1556,8 +1508,7 @@ void* retry_subscription_thread(void *arg)
 int main(int argc,char **argv)
 {
 
-    processStartTime = time(NULL);
-    char *progname;
+      char *progname;
   char *p;
  
   progname = ((p = strrchr (argv[0], '/')) ? ++p : argv[0]);
@@ -1637,7 +1588,6 @@ int main(int argc,char **argv)
     int msgid;
     pthread_t ptid;
     pthread_t ptid1;
-
     // Creating subscription retry thread
     dbg_log(" retry subscription thread creation \n");
     pthread_t subscription_thread;
@@ -1674,8 +1624,8 @@ int main(int argc,char **argv)
   //perror( "server: Failed to create message queue:" );
     // display the message
    // printf("Data Received is : %s \n", message.mesg_text);
-    dbg_log("Data Received is : %d \nFLAG: %d \nACK: %u\nSeq %u\n TS: %lld.%06lld\n", 
-                    message.mesg_type,message.th_flag,message.th_ack,message.th_seq,message.tv_sec,message.tv_usec);
+    //dbg_log("Data Received is : %d \nFLAG: %d \nACK: %u\nSeq %u\n TS: %lld.%06lld\n", 
+    //                message.mesg_type,message.th_flag,message.th_ack,message.th_seq,message.tv_sec,message.tv_usec);
     if((message.th_flag & SYN_ACK) == SYN_ACK)
     {
         //insert(message.th_ack,message);
