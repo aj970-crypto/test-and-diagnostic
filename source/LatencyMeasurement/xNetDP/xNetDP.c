@@ -591,15 +591,18 @@ void replacePriorityMacs(LatencyTable *hashLatencyTable,int iMaxClients)
         //Search for the priority mac in the IPv4 Latency table from iPriMacIndex to end
         for (int iIpv4LatTabIndex = iPriMacIndex; iIpv4LatTabIndex < iMaxClients; iIpv4LatTabIndex++)
         {
+            dbg_log("Comparing hash MAC %s with priority MAC %s \n", hashLatencyTable[iIpv4LatTabIndex].mac, g_cMacAddresses[iPriMacIndex]);
             if (strcmp(hashLatencyTable[iIpv4LatTabIndex].mac, g_cMacAddresses[iPriMacIndex]) == 0)
             {
                 iFoundIndex = iIpv4LatTabIndex;
+                dbg_log(" Found MAC entry at index %d \n", iFoundIndex);
                 break;
             }
         }
 
         if (-1 == iFoundIndex)
         {
+            dbg_log(" Add missing MAC entry \n");
            memset(&hashLatencyTable[iPriMacIndex], 0, sizeof(LatencyTable));
            snprintf(hashLatencyTable[iPriMacIndex].mac, sizeof(hashLatencyTable[iPriMacIndex].mac), "%s", g_cMacAddresses[iPriMacIndex]);
            hashLatencyTable[iPriMacIndex].bHasLatencyEntry = true;
@@ -609,6 +612,7 @@ void replacePriorityMacs(LatencyTable *hashLatencyTable,int iMaxClients)
         else if (iFoundIndex != iPriMacIndex)
         {
             //Swap the entries
+            dbg_log("swap the MAC entries \n");
             LatencyTable temp = hashLatencyTable[iPriMacIndex];
             hashLatencyTable[iPriMacIndex] = hashLatencyTable[iFoundIndex];
             hashLatencyTable[iFoundIndex] = temp;
@@ -638,6 +642,10 @@ void UpdateReportingTable(int hashIndex)
         if (false == sPriorityMacUpdateStatus.bIsPriorityMacsReplaced && true == sPriorityMacUpdateStatus.bIsPriorityMacsUpdated)
         {
             replacePriorityMacs(hashLatencyTable, MAX_NUM_OF_CLIENTS);
+            for(int i=0; i<g_iPriorityMacCount; i++)
+            {
+                dbg_log(" Priority MAC %d : %s, %lld, %lld, %lld, %lld \n", i, hashLatencyTable[i].mac, hashLatencyTable[i].SynAckMinLatency_sec, hashLatencyTable[i].SynAckMinLatency_usec, hashLatencyTable[i].AckMinLatency_sec, hashLatencyTable[i].AckMinLatency_usec);
+            }
         }
     }
     if ( index < MAX_NUM_OF_CLIENTS )
@@ -944,7 +952,10 @@ void* LatencyReportThread(void* arg)
         sleep(args.report_interval);
         // display();
         sPriorityMacUpdateStatus.bIsPriorityMacsReplaced = false;
-
+        if(i<MAX_NUM_OF_CLIENTS)
+        {
+            dbg_log(" MAC entry of index i %d : %s\n",  i, Ipv4HashLatencyTable[i].mac);
+        }
         pthread_mutex_lock(&latency_report_lock);
         while(i < MAX_NUM_OF_CLIENTS)
         {
