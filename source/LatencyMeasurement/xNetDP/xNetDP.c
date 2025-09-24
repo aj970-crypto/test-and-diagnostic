@@ -130,6 +130,8 @@ typedef enum{
 
 msg message;
 u_int g_HashCount = 0;
+u_int gHashLatTabIpv4MacCount = 0;//Hash Latency table IPv4 mac count
+//u_int gHashLatTabIpv6MacCount = 0;//Hash Latency table IPv6 mac count
 //msg PcktHashTable[SIZE];
   
 // structure for message queue
@@ -246,7 +248,7 @@ typedef struct LatencyTable
     Calt_Percentile_info Percentile_info[2];
 }LatencyTable;
 
-#define MAX_NUM_OF_CLIENTS 100
+#define MAX_NUM_OF_CLIENTS 3
 
 LatencyTable Ipv4HashLatencyTable[MAX_NUM_OF_CLIENTS];
 LatencyTable Ipv6HashLatencyTable[MAX_NUM_OF_CLIENTS];
@@ -572,6 +574,7 @@ void UpdateReportingTable(int hashIndex)
 
     if ( index < MAX_NUM_OF_CLIENTS )
     {
+		dbg_log("hash Latency mac %s and hash Array MAC %s\n", hashLatencyTable[index].mac,hashArray[hashIndex].mac);
        
         if (strcmp(hashLatencyTable[index].mac,hashArray[hashIndex].mac) == 0)
         {
@@ -714,7 +717,10 @@ void UpdateReportingTable(int hashIndex)
             index %= MAX_NUM_OF_CLIENTS;
 
         }
+        if (hashArray[hashIndex].ip_type == IPV4 )
+            gHashLatTabIpv4MacCount++;
         dbg_log("New entry for mac %s\n",hashArray[hashIndex].mac);
+        dbg_log("==========gHashLatTabIpv4MacCount:%d\n",gHashLatTabIpv4MacCount);
         strncpy(hashLatencyTable[index].mac,hashArray[hashIndex].mac,sizeof(hashArray[hashIndex].mac)-1);
 
         hashLatencyTable[index].SynAckMinLatency_sec = hashArray[hashIndex].latency_sec;
@@ -911,8 +917,10 @@ void* LatencyReportThread(void* arg)
                     if((byteCount+tempCount+port_sz_count) < (MAX_REPORT_SIZE-FILTER_BUF_SIZE))
                     {
                         byteCount += tempCount+port_sz_count;
-                        dbg_log("Flush Ipv4HashLatencyTable\n");
+                        dbg_log("Flush Ipv4HashLatencyTable\n", Ipv4HashLatencyTable[i].mac);
                         memset(&Ipv4HashLatencyTable[i],0,sizeof(LatencyTable));
+				        dbg_log(">>>>>>>>>>>>gHashLatTabIpv4MacCount:%d\n",gHashLatTabIpv4MacCount);
+                        gHashLatTabIpv4MacCount--;
                         strncat(tmp_report_buf,str,(MAX_REPORT_SIZE-strlen(tmp_report_buf)-1));
                         strncat(tmp_report_buf,port_buff,(MAX_REPORT_SIZE-strlen(tmp_report_buf)-1));
                         num_of_ipv4_clients++;
