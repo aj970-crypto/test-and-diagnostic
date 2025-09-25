@@ -468,6 +468,7 @@ void insert(int key,msg data) {
 
    memcpy(hashArray[hashIndex].mac,data.mac,18); 
 
+   dbg_log("strlen of hashArray MAC = %d\n", strlen(hashArray[hashIndex].mac));
    dbg_log("hashIndex %d MAC: %s FLAG: %d ACK: %u Seq: %u TS: %lld.%06lld\n",hashIndex,hashArray[hashIndex].mac,hashArray[hashIndex].TcpInfo[INDEX_SYN].th_flag,hashArray[hashIndex].TcpInfo[INDEX_SYN].th_ack,hashArray[hashIndex].TcpInfo[INDEX_SYN].th_seq,hashArray[hashIndex].TcpInfo[INDEX_SYN].tv_sec,hashArray[hashIndex].TcpInfo[INDEX_SYN].tv_usec);
   // hashArray[hashIndex] = data;
 }
@@ -564,7 +565,9 @@ long long latency_in_microsecond(long long latency_sec,long long latency_usec)
 void UpdateReportingTable(int hashIndex)
 {
     pthread_mutex_lock(&latency_report_lock);
+	dbg_log(" hashIndex = %d, hashArray MAC = %s and strlen = %d\n", hashIndex, hashArray[hashIndex].mac, strlen(hashArray[hashIndex].mac));
     int index = hash_latency(hashArray[hashIndex].mac);
+	dbg_log(" index = %d\n", index);
     int i = 0 ;
     LatencyTable *hashLatencyTable = NULL ;
     if (hashArray[hashIndex].ip_type == IPV4 )
