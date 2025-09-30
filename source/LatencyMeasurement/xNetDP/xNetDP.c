@@ -606,7 +606,6 @@ void replacePriorityMacs(LatencyTable *hashLatencyTable,int iMaxClients)
            memset(&hashLatencyTable[iPriMacIndex], 0, sizeof(LatencyTable));
            snprintf(hashLatencyTable[iPriMacIndex].mac, sizeof(hashLatencyTable[iPriMacIndex].mac), "%s", g_cMacAddresses[iPriMacIndex]);
            hashLatencyTable[iPriMacIndex].bHasLatencyEntry = true;
-           //hashLatencyTable[iPriMacIndex].bIsPrioritized = true;
            sPriorityMacUpdateStatus.bIsPriorityMacsReplaced = true;
         }
         else if (iFoundIndex != iPriMacIndex)
@@ -616,12 +615,12 @@ void replacePriorityMacs(LatencyTable *hashLatencyTable,int iMaxClients)
             LatencyTable temp = hashLatencyTable[iPriMacIndex];
             hashLatencyTable[iPriMacIndex] = hashLatencyTable[iFoundIndex];
             hashLatencyTable[iFoundIndex] = temp;
-            //hashLatencyTable[iPriMacIndex].bIsPrioritized = true;
             sPriorityMacUpdateStatus.bIsPriorityMacsReplaced = true;
         }
     }
 }
 
+#if 0
 void updateLatencyData(LatencyTable * pHashLatencyTable, int iIndex, int iHashIndex)
 {
     dbg_log("Enter %s : iIndex %d iHashIndex %d \n",__FUNCTION__,iIndex,iHashIndex);
@@ -751,11 +750,11 @@ void updateLatencyData(LatencyTable * pHashLatencyTable, int iIndex, int iHashIn
     pHashLatencyTable[iIndex].AckAggregatedLatency_usec += hashArray[iHashIndex].Lan_latency_usec ;
 
 }
+#endif
 
 void UpdateReportingTable(int hashIndex)
 {
     pthread_mutex_lock(&latency_report_lock);
-    dbg_log(" hashIndex = %d, hashArray MAC = %s and strlen = %d\n", hashIndex, hashArray[hashIndex].mac, strlen(hashArray[hashIndex].mac));
     int index = hash_latency(hashArray[hashIndex].mac);
     dbg_log("index = %d\n", index);
     int i = 0 ;
@@ -769,8 +768,10 @@ void UpdateReportingTable(int hashIndex)
         hashLatencyTable = Ipv6HashLatencyTable ;
     }
 
+    // Replace priority MACs if configured and table is full
     if (g_iPriorityMacCount > 0 && (gHashLatTabIpv4MacCount >= MAX_NUM_OF_CLIENTS || gHashLatTabIpv6MacCount >= MAX_NUM_OF_CLIENTS))
     {
+        // Replace priority MACs only once after table is full or MACs are updated
         if (false == sPriorityMacUpdateStatus.bIsPriorityMacsReplaced && true == sPriorityMacUpdateStatus.bIsPriorityMacsUpdated)
         {
             replacePriorityMacs(Ipv4HashLatencyTable, MAX_NUM_OF_CLIENTS);
@@ -789,9 +790,6 @@ void UpdateReportingTable(int hashIndex)
         if (strcmp(hashLatencyTable[index].mac,hashArray[hashIndex].mac) == 0)
         {
             dbg_log("Updating existing MAC entry at index %d\n", index);
-            updateLatencyData(hashLatencyTable, index, hashIndex);
-
-#if 0
           if(PercentileCalculationEnable)
             {
                 hashLatencyTable[index].wanSamples[hashLatencyTable[index].Num_of_Sample]=latency_in_microsecond(hashArray[hashIndex].latency_sec,hashArray[hashIndex].latency_usec);
@@ -911,12 +909,10 @@ void UpdateReportingTable(int hashIndex)
             hashLatencyTable[index].SynAckAggregatedLatency_usec += hashArray[hashIndex].latency_usec ;
             hashLatencyTable[index].AckAggregatedLatency_sec += hashArray[hashIndex].Lan_latency_sec ;
             hashLatencyTable[index].AckAggregatedLatency_usec += hashArray[hashIndex].Lan_latency_usec ;
-#endif
             goto LOG_MINMAX_LATENCY;
         }
 
-        dbg_log("hashLatencyTable[%d] MAC = %s and hashArray MAC = %s not matching\n", index, hashLatencyTable[index].mac, hashArray[hashIndex].mac);
-        while (( hashLatencyTable[index].mac[0] != '\0') && (0 != strcmp (hashLatencyTable[index].mac,hashArray[hashIndex].mac)))
+        while ( hashLatencyTable[index].mac[0] != '\0')
         {
             dbg_log("i=%d\n", i);
             if (i >= MAX_NUM_OF_CLIENTS )
@@ -927,21 +923,9 @@ void UpdateReportingTable(int hashIndex)
             }
             ++index ;
             i++;
-
-            dbg_log("i and index values are %d and %d\n",i,index);
             //wrap around the table
             index %= MAX_NUM_OF_CLIENTS;
             dbg_log("After wrap around index value : %d \n", index);
-
-        }
-
-        dbg_log("hashLatency MAC = %s and hashArray MAC = %s\n", hashLatencyTable[index].mac, hashArray[hashIndex].mac);
-        //if we found the same mac update the entry
-        if (0 == strcmp (hashLatencyTable[index].mac,hashArray[hashIndex].mac))
-        {
-            //call the function similar to the above 
-            updateLatencyData(hashLatencyTable, index, hashIndex);
-            goto LOG_MINMAX_LATENCY;
         }
 
         if (hashArray[hashIndex].ip_type == IPV4 )
@@ -956,8 +940,7 @@ void UpdateReportingTable(int hashIndex)
             gHashLatTabIpv6MacCount++;
             dbg_log("==========gHashLatTabIpv6MacCount:%d\n",gHashLatTabIpv6MacCount);
         }
-        //dbg_log("New entry for mac %s\n",hashArray[hashIndex].mac);
-        //dbg_log("==========gHashLatTabIpv4MacCount:%d\n",gHashLatTabIpv4MacCount);
+  
         strncpy(hashLatencyTable[index].mac,hashArray[hashIndex].mac,sizeof(hashArray[hashIndex].mac)-1);
 
         hashLatencyTable[index].SynAckMinLatency_sec = hashArray[hashIndex].latency_sec;
