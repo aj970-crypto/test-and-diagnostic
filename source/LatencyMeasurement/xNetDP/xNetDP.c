@@ -803,6 +803,7 @@ void UpdateReportingTable(int hashIndex)
 
         while (( hashLatencyTable[index].mac[0] != '\0') && (0 != strcmp (hashLatencyTable[index].mac,hashArray[hashIndex].mac)))
         {
+            dbg_log("Inside while loop, hash Latency MAC = %s and hashArray MAC = %s\n", hashLatencyTable[index].mac, hashArray[hashIndex].mac);
             if (i >= MAX_NUM_OF_CLIENTS )
             {
                 dbg_log("%s : Hash table is full,returning\n",__FUNCTION__); 
@@ -819,9 +820,10 @@ void UpdateReportingTable(int hashIndex)
         }
         //dbg_log("hashLatency MAC = %s and hashArray MAC = %s\n", hashLatencyTable[index].mac, hashArray[hashIndex].mac);
         //if we found the same mac update the entry
+        dbg_log("hashLatencyTable MAC at last %s and hashArray %s\n", hashLatencyTable[index].mac, hashArray[hashIndex].mac);
         if ((hashLatencyTable[index].mac[0] != '\0')&& (0 == strcmp (hashLatencyTable[index].mac,hashArray[hashIndex].mac)))
         {
-            dbg_log("hashLatency MAC = %s and hashArray MAC = %s \n", hashLatencyTable[index].mac, hashArray[hashIndex].mac);
+            dbg_log("comparison passed after wrap hashLatency MAC = %s and hashArray MAC = %s \n", hashLatencyTable[index].mac, hashArray[hashIndex].mac);
             dbg_log("Updating existing MAC entry at index %d of type %s\n", index, (hashArray[hashIndex].ip_type == IPV4)? "IPv4":(hashArray[hashIndex].ip_type == IPV6)?"IPv6":"");
             //call the function similar to the above 
             updateLatencyData(hashLatencyTable, index, hashIndex);
@@ -1055,8 +1057,8 @@ void* LatencyReportThread(void* arg)
                         byteCount += tempCount+port_sz_count;
                         dbg_log("Flush Ipv4HashLatencyTable:%s\n",Ipv4HashLatencyTable[i].mac);
                         memset(&Ipv4HashLatencyTable[i],0,sizeof(LatencyTable));
-                      //  gHashLatTabIpv4MacCount--;
-                       // dbg_log("after Flush Ipv4HashLatencyTable gHashLatTabIpv4MacCount %d\n",gHashLatTabIpv4MacCount);
+                        gHashLatTabIpv4MacCount--;
+                        dbg_log("after Flush Ipv4HashLatencyTable gHashLatTabIpv4MacCount %d\n",gHashLatTabIpv4MacCount);
                         strncat(tmp_report_buf,str,(MAX_REPORT_SIZE-strlen(tmp_report_buf)-1));
                         strncat(tmp_report_buf,port_buff,(MAX_REPORT_SIZE-strlen(tmp_report_buf)-1));
                         num_of_ipv4_clients++;
@@ -1071,6 +1073,13 @@ void* LatencyReportThread(void* arg)
                 //strcat(str,str1);
                 dbg_log("i = %d str = %s\n",i,str);
                 memset(str,0,hashSize);
+            }
+            else{
+                dbg_log("No valid entry found for Ipv4HashLatencyTable[%d]\n", i);
+                dbg_log("Flush Ipv4HashLatencyTable:%s\n",Ipv4HashLatencyTable[i].mac);
+                memset(&Ipv4HashLatencyTable[i],0,sizeof(LatencyTable));
+                gHashLatTabIpv4MacCount--;
+                dbg_log("after Flush Ipv4HashLatencyTable gHashLatTabIpv4MacCount %d\n",gHashLatTabIpv4MacCount);
             }
             i++;
         }
@@ -1124,8 +1133,8 @@ void* LatencyReportThread(void* arg)
                         byteCount += tempCount+port_sz_count;
                         dbg_log("Flush Ipv6HashLatencyTable:%s\n",Ipv6HashLatencyTable[i].mac);
                         memset(&Ipv6HashLatencyTable[i],0,sizeof(LatencyTable));
-                       // gHashLatTabIpv6MacCount--;
-                       // dbg_log("after Flush Ipv6HashLatencyTable gHashLatTabIpv6MacCount %d\n",gHashLatTabIpv6MacCount);
+                        gHashLatTabIpv6MacCount--;
+                        dbg_log("after Flush Ipv6HashLatencyTable gHashLatTabIpv6MacCount %d\n",gHashLatTabIpv6MacCount);
                         strncat(tmp_report_buf,str,(MAX_REPORT_SIZE-strlen(tmp_report_buf)-1));
                         strncat(tmp_report_buf,port_buff,(MAX_REPORT_SIZE-strlen(tmp_report_buf)-1));
                         num_of_ipv6_clients++;
@@ -1140,6 +1149,13 @@ void* LatencyReportThread(void* arg)
                 //strcat(str,str1);
                 dbg_log("i = %d str = %s\n",i,str);
                 memset(str,0,hashSize);
+            }
+            else{
+                dbg_log("No valid entry found for Ipv6HashLatencyTable[%d]\n", i);
+                dbg_log("Flush Ipv6HashLatencyTable:%s\n",Ipv6HashLatencyTable[i].mac);
+                memset(&Ipv6HashLatencyTable[i],0,sizeof(LatencyTable));
+                gHashLatTabIpv6MacCount--;
+                dbg_log("after Flush Ipv6HashLatencyTable gHashLatTabIpv6MacCount %d\n",gHashLatTabIpv6MacCount);
             }
             i++;
         }
@@ -1761,6 +1777,7 @@ int main(int argc,char **argv)
   
     // to destroy the message queue
     msgctl(msgid, IPC_RMID, NULL);
+    rbus_close(bus_handle_rbus);
 
     if (logFp != NULL)
     {
