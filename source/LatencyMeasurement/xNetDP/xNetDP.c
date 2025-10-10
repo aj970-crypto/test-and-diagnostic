@@ -268,7 +268,7 @@ typedef struct LatencyTable
     Calt_Percentile_info Percentile_info[2];
 }LatencyTable;
 
-#define MAX_NUM_OF_CLIENTS 3
+#define MAX_NUM_OF_CLIENTS 2
 
 LatencyTable Ipv4HashLatencyTable[MAX_NUM_OF_CLIENTS];
 LatencyTable Ipv6HashLatencyTable[MAX_NUM_OF_CLIENTS];
