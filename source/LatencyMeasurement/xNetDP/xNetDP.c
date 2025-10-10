@@ -638,6 +638,12 @@ void updateLatencyData(LatencyTable * hashLatencyTable, int index, int hashIndex
         dbg_log("%s:%d,NULL parameter passed \n", __FUNCTION__,__LINE__);
         return;
     }
+    if(!hashLatencyTable[index].bHasLatencyEntry)
+    {
+        dbg_log("Set LatencyEntry to true\n");
+        hashLatencyTable[index].bHasLatencyEntry = true ;
+    }
+        
     if(PercentileCalculationEnable)
     {
         hashLatencyTable[index].wanSamples[hashLatencyTable[index].Num_of_Sample]=latency_in_microsecond(hashArray[hashIndex].latency_sec,hashArray[hashIndex].latency_usec);
@@ -691,10 +697,10 @@ void updateLatencyData(LatencyTable * hashLatencyTable, int index, int hashIndex
         }
     }
 
-    /*dbg_log("Before comparing latency, SynAckMinLatency is %lld.%06lld,SynAckMinLatency %lld.%06lld\n",
+    dbg_log("Before comparing latency, SynAckMinLatency is %lld.%06lld,SynAckMinLatency %lld.%06lld\n",
             hashLatencyTable[index].SynAckMinLatency_sec,hashLatencyTable[index].SynAckMinLatency_usec,
             hashLatencyTable[index].SynAckMaxLatency_sec,hashLatencyTable[index].SynAckMaxLatency_usec 
-           );*/
+           );
     if ( hashArray[hashIndex].latency_sec < hashLatencyTable[index].SynAckMinLatency_sec)
     {
         hashLatencyTable[index].SynAckMinLatency_sec = hashArray[hashIndex].latency_sec;
@@ -722,10 +728,10 @@ void updateLatencyData(LatencyTable * hashLatencyTable, int index, int hashIndex
             hashLatencyTable[index].SynAckMaxLatency_usec = hashArray[hashIndex].latency_usec ;
         }
     }
-/*    dbg_log("Before comparing latency,AckMinLatency is %lld.%06lld,SynAckMinLatency %lld.%06lld\n",
+    dbg_log("Before comparing latency,AckMinLatency is %lld.%06lld,SynAckMinLatency %lld.%06lld\n",
             hashLatencyTable[index].AckMinLatency_sec,hashLatencyTable[index].AckMinLatency_usec,
             hashLatencyTable[index].AckMaxLatency_sec,hashLatencyTable[index].AckMaxLatency_usec 
-           ); */
+           );
 
     if( hashArray[hashIndex].Lan_latency_sec < hashLatencyTable[index].AckMinLatency_sec)
     {
@@ -1074,7 +1080,7 @@ void* LatencyReportThread(void* arg)
                 dbg_log("i = %d str = %s\n",i,str);
                 memset(str,0,hashSize);
             }
-            else{
+            else if(0 != strlen(Ipv4HashLatencyTable[i].mac)){
                 dbg_log("No valid entry found for Ipv4HashLatencyTable[%d]\n", i);
                 dbg_log("Flush Ipv4HashLatencyTable:%s\n",Ipv4HashLatencyTable[i].mac);
                 memset(&Ipv4HashLatencyTable[i],0,sizeof(LatencyTable));
@@ -1150,7 +1156,7 @@ void* LatencyReportThread(void* arg)
                 dbg_log("i = %d str = %s\n",i,str);
                 memset(str,0,hashSize);
             }
-            else{
+            else if(0 != strlen(Ipv6HashLatencyTable[i].mac)){
                 dbg_log("No valid entry found for Ipv6HashLatencyTable[%d]\n", i);
                 dbg_log("Flush Ipv6HashLatencyTable:%s\n",Ipv6HashLatencyTable[i].mac);
                 memset(&Ipv6HashLatencyTable[i],0,sizeof(LatencyTable));
