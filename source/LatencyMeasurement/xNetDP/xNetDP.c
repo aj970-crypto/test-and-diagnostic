@@ -600,7 +600,7 @@ void replacePriorityMacs(LatencyTable *hashLatencyTable,int iMaxClients, int iIp
 
         if (-1 == iFoundIndex)
         {
-           dbg_log(" Add missing MAC entry, len:%d\n",hashLatencyTable[iPriMacIndex].mac);
+           dbg_log(" Add missing MAC entry, %s and len : %d\n",hashLatencyTable[iPriMacIndex].mac, strlen(hashLatencyTable[iPriMacIndex].mac));
            //if the Latency table is not full, increment the counter after adding it
            if (0 == strlen (hashLatencyTable[iPriMacIndex].mac))
            {
@@ -612,7 +612,7 @@ void replacePriorityMacs(LatencyTable *hashLatencyTable,int iMaxClients, int iIp
            }
            memset(&hashLatencyTable[iPriMacIndex], 0, sizeof(LatencyTable));
            snprintf(hashLatencyTable[iPriMacIndex].mac, sizeof(hashLatencyTable[iPriMacIndex].mac), "%s", g_cMacAddresses[iPriMacIndex]);
-           hashLatencyTable[iPriMacIndex].bHasLatencyEntry = true;
+         //  hashLatencyTable[iPriMacIndex].bHasLatencyEntry = true;
            sPriorityMacUpdateStatus.bIsPriorityMacsReplaced = true;
         }
         else if (iFoundIndex != iPriMacIndex)
@@ -624,10 +624,15 @@ void replacePriorityMacs(LatencyTable *hashLatencyTable,int iMaxClients, int iIp
             hashLatencyTable[iFoundIndex] = temp;
             sPriorityMacUpdateStatus.bIsPriorityMacsReplaced = true;
         }
+        else if (iFoundIndex == iPriMacIndex)
+        {
+            sPriorityMacUpdateStatus.bIsPriorityMacsReplaced = true;
+        }
     }
 }
 void updateLatencyData(LatencyTable * hashLatencyTable, int index, int hashIndex)
 {
+    dbg_log("Entering into function %s\n", __FUNCTION__);
     if (NULL == hashLatencyTable)
     {
         dbg_log("%s:%d,NULL parameter passed \n", __FUNCTION__,__LINE__);
@@ -757,6 +762,7 @@ void UpdateReportingTable(int hashIndex)
 {
     pthread_mutex_lock(&latency_report_lock);
     int index = hash_latency(hashArray[hashIndex].mac);
+    dbg_log("index = %d\n", index);
     int i = 0 ;
     LatencyTable *hashLatencyTable = NULL ;
     if (hashArray[hashIndex].ip_type == IPV4 )
@@ -772,12 +778,15 @@ void UpdateReportingTable(int hashIndex)
         {
             replacePriorityMacs(Ipv4HashLatencyTable, MAX_NUM_OF_CLIENTS, IPV4);
             replacePriorityMacs(Ipv6HashLatencyTable, MAX_NUM_OF_CLIENTS, IPV6);
-            dbg_log(" After replacing Priority MACs in Ipv4 and Ipv6Latency Table \n");
-            for(int i=0; i<g_iPriorityMacCount; i++)
+            if ( args.dbg_mode == true )
             {
-                dbg_log(" Priority MAC IPv4 %d : %s, %lld, %lld, %lld, %lld \n", i, Ipv4HashLatencyTable[i].mac, Ipv4HashLatencyTable[i].SynAckMinLatency_sec, Ipv4HashLatencyTable[i].SynAckMinLatency_usec, Ipv4HashLatencyTable[i].AckMinLatency_sec, Ipv4HashLatencyTable[i].AckMinLatency_usec);
-                dbg_log(" Priority MAC IPv6 %d : %s, %lld, %lld, %lld, %lld \n", i, Ipv6HashLatencyTable[i].mac, Ipv6HashLatencyTable[i].SynAckMinLatency_sec, Ipv6HashLatencyTable[i].SynAckMinLatency_usec, Ipv6HashLatencyTable[i].AckMinLatency_sec, Ipv6HashLatencyTable[i].AckMinLatency_usec);
-            }
+                dbg_log(" After replacing Priority MACs in Ipv4 and Ipv6Latency Table \n");
+                for(int i=0; i<g_iPriorityMacCount; i++)
+                {
+                    dbg_log(" Priority MAC IPv4 %d : %s, %lld, %lld, %lld, %lld \n", i, Ipv4HashLatencyTable[i].mac, Ipv4HashLatencyTable[i].SynAckMinLatency_sec, Ipv4HashLatencyTable[i].SynAckMinLatency_usec, Ipv4HashLatencyTable[i].AckMinLatency_sec, Ipv4HashLatencyTable[i].AckMinLatency_usec);
+                    dbg_log(" Priority MAC IPv6 %d : %s, %lld, %lld, %lld, %lld \n", i, Ipv6HashLatencyTable[i].mac, Ipv6HashLatencyTable[i].SynAckMinLatency_sec, Ipv6HashLatencyTable[i].SynAckMinLatency_usec, Ipv6HashLatencyTable[i].AckMinLatency_sec, Ipv6HashLatencyTable[i].AckMinLatency_usec);
+                }
+            }             
         }
     }
 
@@ -803,9 +812,10 @@ void UpdateReportingTable(int hashIndex)
             ++index ;
             i++;
 
+            dbg_log("index value after increment = %d\n", index);
             //wrap around the table
             index %= MAX_NUM_OF_CLIENTS;
-
+            dbg_log("index after wrap around = %d\n", index);
         }
         //dbg_log("hashLatency MAC = %s and hashArray MAC = %s\n", hashLatencyTable[index].mac, hashArray[hashIndex].mac);
         //if we found the same mac update the entry
@@ -1015,13 +1025,11 @@ void* LatencyReportThread(void* arg)
                 tempCount = snprintf(str,sizeof(str),";%s;%lu,%lld,%lld,%lld,%lld,%lld,%lld,%lld,%lld;",Ipv4HashLatencyTable[i].mac,Ipv4HashLatencyTable[i].num_of_flows,
                     latency_in_microsecond(Ipv4HashLatencyTable[i].SynAckMinLatency_sec,Ipv4HashLatencyTable[i].SynAckMinLatency_usec),
                     latency_in_microsecond(Ipv4HashLatencyTable[i].SynAckMaxLatency_sec,Ipv4HashLatencyTable[i].SynAckMaxLatency_usec),
-                    Ipv4HashLatencyTable[i].num_of_flows ?
-                    latency_in_microsecond(Ipv4HashLatencyTable[i].SynAckAggregatedLatency_sec,Ipv4HashLatencyTable[i].SynAckAggregatedLatency_usec)/Ipv4HashLatencyTable[i].num_of_flows : -1,
+                    latency_in_microsecond(Ipv4HashLatencyTable[i].SynAckAggregatedLatency_sec,Ipv4HashLatencyTable[i].SynAckAggregatedLatency_usec)/Ipv4HashLatencyTable[i].num_of_flows,
                     Ipv4HashLatencyTable[i].SynAckPercentileLatency,
                     latency_in_microsecond(Ipv4HashLatencyTable[i].AckMinLatency_sec,Ipv4HashLatencyTable[i].AckMinLatency_usec),
                     latency_in_microsecond(Ipv4HashLatencyTable[i].AckMaxLatency_sec,Ipv4HashLatencyTable[i].AckMaxLatency_usec),
-                    Ipv4HashLatencyTable[i].num_of_flows ?
-                    latency_in_microsecond(Ipv4HashLatencyTable[i].AckAggregatedLatency_sec,Ipv4HashLatencyTable[i].AckAggregatedLatency_usec)/Ipv4HashLatencyTable[i].num_of_flows : -1,
+                    latency_in_microsecond(Ipv4HashLatencyTable[i].AckAggregatedLatency_sec,Ipv4HashLatencyTable[i].AckAggregatedLatency_usec)/Ipv4HashLatencyTable[i].num_of_flows,
                     Ipv4HashLatencyTable[i].AckPercentileLatency
                     );
             
@@ -1047,8 +1055,8 @@ void* LatencyReportThread(void* arg)
                         byteCount += tempCount+port_sz_count;
                         dbg_log("Flush Ipv4HashLatencyTable:%s\n",Ipv4HashLatencyTable[i].mac);
                         memset(&Ipv4HashLatencyTable[i],0,sizeof(LatencyTable));
-                        gHashLatTabIpv4MacCount--;
-                        dbg_log("after Flush Ipv4HashLatencyTable gHashLatTabIpv4MacCount %d\n",gHashLatTabIpv4MacCount);
+                      //  gHashLatTabIpv4MacCount--;
+                       // dbg_log("after Flush Ipv4HashLatencyTable gHashLatTabIpv4MacCount %d\n",gHashLatTabIpv4MacCount);
                         strncat(tmp_report_buf,str,(MAX_REPORT_SIZE-strlen(tmp_report_buf)-1));
                         strncat(tmp_report_buf,port_buff,(MAX_REPORT_SIZE-strlen(tmp_report_buf)-1));
                         num_of_ipv4_clients++;
@@ -1088,13 +1096,11 @@ void* LatencyReportThread(void* arg)
                 tempCount = snprintf(str,sizeof(str),";%s;%lu,%lld,%lld,%lld,%lld,%lld,%lld,%lld,%lld;",Ipv6HashLatencyTable[i].mac,Ipv6HashLatencyTable[i].num_of_flows,
                     latency_in_microsecond(Ipv6HashLatencyTable[i].SynAckMinLatency_sec,Ipv6HashLatencyTable[i].SynAckMinLatency_usec),
                     latency_in_microsecond(Ipv6HashLatencyTable[i].SynAckMaxLatency_sec,Ipv6HashLatencyTable[i].SynAckMaxLatency_usec),
-                    Ipv6HashLatencyTable[i].num_of_flows ?
-                    latency_in_microsecond(Ipv6HashLatencyTable[i].SynAckAggregatedLatency_sec,Ipv6HashLatencyTable[i].SynAckAggregatedLatency_usec)/Ipv6HashLatencyTable[i].num_of_flows : -1,
+                    latency_in_microsecond(Ipv6HashLatencyTable[i].SynAckAggregatedLatency_sec,Ipv6HashLatencyTable[i].SynAckAggregatedLatency_usec)/Ipv6HashLatencyTable[i].num_of_flows,
                     Ipv6HashLatencyTable[i].SynAckPercentileLatency,
                     latency_in_microsecond(Ipv6HashLatencyTable[i].AckMinLatency_sec,Ipv6HashLatencyTable[i].AckMinLatency_usec),
                     latency_in_microsecond(Ipv6HashLatencyTable[i].AckMaxLatency_sec,Ipv6HashLatencyTable[i].AckMaxLatency_usec),
-                    Ipv6HashLatencyTable[i].num_of_flows ?
-                    latency_in_microsecond(Ipv6HashLatencyTable[i].AckAggregatedLatency_sec,Ipv6HashLatencyTable[i].AckAggregatedLatency_usec)/Ipv6HashLatencyTable[i].num_of_flows : -1,
+                    latency_in_microsecond(Ipv6HashLatencyTable[i].AckAggregatedLatency_sec,Ipv6HashLatencyTable[i].AckAggregatedLatency_usec)/Ipv6HashLatencyTable[i].num_of_flows,
                     Ipv6HashLatencyTable[i].AckPercentileLatency
                 );
                 for(int port_count=0;port_count < Ipv6HashLatencyTable[i].num_of_ports;port_count++)
@@ -1118,8 +1124,8 @@ void* LatencyReportThread(void* arg)
                         byteCount += tempCount+port_sz_count;
                         dbg_log("Flush Ipv6HashLatencyTable:%s\n",Ipv6HashLatencyTable[i].mac);
                         memset(&Ipv6HashLatencyTable[i],0,sizeof(LatencyTable));
-                        gHashLatTabIpv6MacCount--;
-                        dbg_log("after Flush Ipv6HashLatencyTable gHashLatTabIpv6MacCount %d\n",gHashLatTabIpv6MacCount);
+                       // gHashLatTabIpv6MacCount--;
+                       // dbg_log("after Flush Ipv6HashLatencyTable gHashLatTabIpv6MacCount %d\n",gHashLatTabIpv6MacCount);
                         strncat(tmp_report_buf,str,(MAX_REPORT_SIZE-strlen(tmp_report_buf)-1));
                         strncat(tmp_report_buf,port_buff,(MAX_REPORT_SIZE-strlen(tmp_report_buf)-1));
                         num_of_ipv6_clients++;
@@ -1142,7 +1148,7 @@ void* LatencyReportThread(void* arg)
         i = 0;
         memset(buf,0,sizeof(buf));
 
-        snprintf(buf,sizeof(buf),"Private,AnyDSCP,AnyECN,AnyPort,IPv6,%d",num_of_ipv6_clients);
+        snprintf(buf,sizeof(buf),"Private,AnyDSCP,AnyECN,AnyPort,IPv6,num of Ipv6 clients %d",num_of_ipv6_clients);
         dbg_log("before Report_buf is %s\n",report_buf);
         strncat(report_buf,buf,(MAX_REPORT_SIZE-strlen(report_buf)-1));
         strncat(report_buf,tmp_report_buf,(MAX_REPORT_SIZE-strlen(report_buf)-1));
@@ -1425,6 +1431,7 @@ void parseActiveRules(char* pRuleString)
     while (pToken != NULL)
     {
         dbg_log("String value: %s\n", pToken);
+        pMac_saveptr = NULL;
         char* pMac = strtok_r(pToken, cRule2, &pMac_saveptr);
         while (pMac != NULL)
         {
