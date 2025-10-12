@@ -268,7 +268,7 @@ typedef struct LatencyTable
     Calt_Percentile_info Percentile_info[2];
 }LatencyTable;
 
-#define MAX_NUM_OF_CLIENTS 2
+#define MAX_NUM_OF_CLIENTS 3
 
 LatencyTable Ipv4HashLatencyTable[MAX_NUM_OF_CLIENTS];
 LatencyTable Ipv6HashLatencyTable[MAX_NUM_OF_CLIENTS];
@@ -398,12 +398,14 @@ int print_Samples(long long arr[],long long age[], long long size)
 /************************/
 static unsigned int hash_latency (const char *str)
 {
-    unsigned int hash = 5381 % MAX_NUM_OF_CLIENTS;
+    unsigned int hash = 5381;
     int c;
     while ((c = *str++)) {
         hash = ((hash << 5) + hash) + c; 
     }
-    return hash % MAX_NUM_OF_CLIENTS;
+    // Optional mixing to reduce clustering
+    hash ^= (hash >> 16);
+    return (unsigned int)(hash % MAX_NUM_OF_CLIENTS);
 }
 
 int hashCode(int key) {
@@ -605,9 +607,9 @@ void replacePriorityMacs(LatencyTable *hashLatencyTable,int iMaxClients, int iIp
            if (0 == strlen (hashLatencyTable[iPriMacIndex].mac))
            {
                dbg_log(" Incrementing the index for %d\n",iIpType);
-               if (IPV4 == iIpType)
+               if ((IPV4 == iIpType) && (gHashLatTabIpv4MacCount < MAX_NUM_OF_CLIENTS))
                    gHashLatTabIpv4MacCount++;
-               else if (IPV6 == iIpType)
+               else if ((IPV6 == iIpType) && (gHashLatTabIpv6MacCount < MAX_NUM_OF_CLIENTS))
                    gHashLatTabIpv6MacCount++;
            }
            memset(&hashLatencyTable[iPriMacIndex], 0, sizeof(LatencyTable));
@@ -697,10 +699,10 @@ void updateLatencyData(LatencyTable * hashLatencyTable, int index, int hashIndex
         }
     }
 
-    dbg_log("Before comparing latency, SynAckMinLatency is %lld.%06lld,SynAckMinLatency %lld.%06lld\n",
+  /*  dbg_log("Before comparing latency, SynAckMinLatency is %lld.%06lld,SynAckMinLatency %lld.%06lld\n",
             hashLatencyTable[index].SynAckMinLatency_sec,hashLatencyTable[index].SynAckMinLatency_usec,
             hashLatencyTable[index].SynAckMaxLatency_sec,hashLatencyTable[index].SynAckMaxLatency_usec 
-           );
+           ); */
     if ( hashArray[hashIndex].latency_sec < hashLatencyTable[index].SynAckMinLatency_sec)
     {
         hashLatencyTable[index].SynAckMinLatency_sec = hashArray[hashIndex].latency_sec;
@@ -728,10 +730,10 @@ void updateLatencyData(LatencyTable * hashLatencyTable, int index, int hashIndex
             hashLatencyTable[index].SynAckMaxLatency_usec = hashArray[hashIndex].latency_usec ;
         }
     }
-    dbg_log("Before comparing latency,AckMinLatency is %lld.%06lld,SynAckMinLatency %lld.%06lld\n",
+  /*  dbg_log("Before comparing latency,AckMinLatency is %lld.%06lld,SynAckMinLatency %lld.%06lld\n",
             hashLatencyTable[index].AckMinLatency_sec,hashLatencyTable[index].AckMinLatency_usec,
             hashLatencyTable[index].AckMaxLatency_sec,hashLatencyTable[index].AckMaxLatency_usec 
-           );
+           ); */
 
     if( hashArray[hashIndex].Lan_latency_sec < hashLatencyTable[index].AckMinLatency_sec)
     {
@@ -769,7 +771,9 @@ void UpdateReportingTable(int hashIndex)
     pthread_mutex_lock(&latency_report_lock);
     int index = hash_latency(hashArray[hashIndex].mac);
     dbg_log("index = %d\n", index);
-    int i = 0 ;
+    int iOriginalIndex = index; // For probing
+    int iFoundIndex = -1;
+    int iFreeIndex = -1;
     LatencyTable *hashLatencyTable = NULL ;
     if (hashArray[hashIndex].ip_type == IPV4 )
         hashLatencyTable = Ipv4HashLatencyTable ;
@@ -798,56 +802,73 @@ void UpdateReportingTable(int hashIndex)
 
     if ( index < MAX_NUM_OF_CLIENTS )
     {
-       
-        if (strcmp(hashLatencyTable[index].mac,hashArray[hashIndex].mac) == 0)
+        // Step 1 — search for existing MAC to prevent duplicates
+        for (int iVar = 0; iVar < MAX_NUM_OF_CLIENTS; iVar++)
         {
-            dbg_log("hashLatency MAC = %s and hashArray MAC = %s \n", hashLatencyTable[index].mac, hashArray[hashIndex].mac);
-            dbg_log("Updating existing MAC entry at index %d of type %s\n", index, (hashArray[hashIndex].ip_type == IPV4)? "IPv4":(hashArray[hashIndex].ip_type == IPV6)?"IPv6":"");
-            updateLatencyData (hashLatencyTable, index, hashIndex); 
-            goto LOG_MINMAX_LATENCY;
-        }
-
-        while (( hashLatencyTable[index].mac[0] != '\0') && (0 != strcmp (hashLatencyTable[index].mac,hashArray[hashIndex].mac)))
-        {
-            dbg_log("Inside while loop, hash Latency MAC = %s and hashArray MAC = %s\n", hashLatencyTable[index].mac, hashArray[hashIndex].mac);
-            if (i >= MAX_NUM_OF_CLIENTS )
+            int iProbe = (iOriginalIndex + iVar) % MAX_NUM_OF_CLIENTS;
+            dbg_log("iProbe = %d\n", iProbe);
+            if (hashLatencyTable[iProbe].mac[0] != '\0')
             {
-                dbg_log("%s : Hash table is full,returning\n",__FUNCTION__); 
-                pthread_mutex_unlock(&latency_report_lock);
-                return;
+                if (strcmp(hashLatencyTable[iProbe].mac, hashArray[hashIndex].mac) == 0)
+                {
+                    dbg_log("existing MAC found %s at index %d\n", hashArray[hashIndex].mac, iProbe);
+                    iFoundIndex = iProbe; // existing MAC found
+                    break;
+                }
             }
-            ++index ;
-            i++;
-
-            dbg_log("index value after increment = %d\n", index);
-            //wrap around the table
-            index %= MAX_NUM_OF_CLIENTS;
-            dbg_log("index after wrap around = %d\n", index);
         }
-        //dbg_log("hashLatency MAC = %s and hashArray MAC = %s\n", hashLatencyTable[index].mac, hashArray[hashIndex].mac);
-        //if we found the same mac update the entry
-        dbg_log("hashLatencyTable MAC at last %s and hashArray %s\n", hashLatencyTable[index].mac, hashArray[hashIndex].mac);
-        if ((hashLatencyTable[index].mac[0] != '\0')&& (0 == strcmp (hashLatencyTable[index].mac,hashArray[hashIndex].mac)))
+        // *** PATCHED: Step 2 — update if found
+        if (iFoundIndex != -1)
         {
-            dbg_log("comparison passed after wrap hashLatency MAC = %s and hashArray MAC = %s \n", hashLatencyTable[index].mac, hashArray[hashIndex].mac);
-            dbg_log("Updating existing MAC entry at index %d of type %s\n", index, (hashArray[hashIndex].ip_type == IPV4)? "IPv4":(hashArray[hashIndex].ip_type == IPV6)?"IPv6":"");
-            //call the function similar to the above 
+            index = iFoundIndex;
+            dbg_log("Updating existing entry for MAC %s at index %d\n", hashArray[hashIndex].mac, index);
             updateLatencyData(hashLatencyTable, index, hashIndex);
             goto LOG_MINMAX_LATENCY;
         }
+        // *** PATCHED: Step 3 — find first empty slot if MAC not found
+        for (int iVar = 0; iVar < MAX_NUM_OF_CLIENTS; iVar++)
+        {
+            int iProbe = (iOriginalIndex + iVar) % MAX_NUM_OF_CLIENTS;
+            dbg_log("Empty slot found at index : %d\n", iProbe);
+            if (hashLatencyTable[iProbe].mac[0] == '\0')
+            {
+                iFreeIndex = iProbe;
+                break;
+            }
+        }
+
+        if (iFreeIndex == -1)
+        {
+            dbg_log("%s : Hash table full. Cannot insert new MAC\n", __FUNCTION__);
+            pthread_mutex_unlock(&latency_report_lock);
+            return;
+        }
+
+        index = iFreeIndex;
+      //  dbg_log("Inserting NEW MAC %s at index %d\n", hashArray[hashIndex].mac, index);
+        strncpy(hashLatencyTable[index].mac, hashArray[hashIndex].mac, sizeof(hashLatencyTable[index].mac) - 1);
+        hashLatencyTable[index].mac[sizeof(hashLatencyTable[index].mac) - 1] = '\0';
 
         if (hashArray[hashIndex].ip_type == IPV4 )
         {
-            gHashLatTabIpv4MacCount++;
-            dbg_log(">>>>>>>>> New entry for IPV4 mac %s and IPV4 count %d, at index:%d >>>>>>>>>>>>\n",hashArray[hashIndex].mac, gHashLatTabIpv4MacCount, index);
+            dbg_log(">>>>>>>>>>> New entry for IPV4 mac %s at index:%d and IPV4 Count : %d >>>>>>>>>>>\n",hashArray[hashIndex].mac, index, gHashLatTabIpv4MacCount);
+            if(gHashLatTabIpv4MacCount < MAX_NUM_OF_CLIENTS)
+            {
+                gHashLatTabIpv4MacCount++;
+                dbg_log(">>>>>>>>>>> Incremented IPV4 count : %d and MAC : %s at index %d >>>>>>>>>>\n", gHashLatTabIpv4MacCount, hashArray[hashIndex].mac, index);
+            }
         }
         else
         {
-            gHashLatTabIpv6MacCount++;
-            dbg_log(">>>>>>>>>>> New entry for IPV6 mac %s and IPV6 count %d, at index:%d >>>>>>>>>>>\n",hashArray[hashIndex].mac, gHashLatTabIpv6MacCount, index);
+            dbg_log(">>>>>>>>>>> New entry for IPV6 mac %s and IPV6 count %d, at index:%d >>>>>>>>>>>\n", hashArray[hashIndex].mac, gHashLatTabIpv6MacCount, index);
+            if(gHashLatTabIpv6MacCount < MAX_NUM_OF_CLIENTS)
+            {
+                gHashLatTabIpv6MacCount++;
+                dbg_log(">>>>>>>>>>> Incremented IPV6 count : %d and MAC : %s at index %d >>>>>>>>>>\n", gHashLatTabIpv6MacCount, hashArray[hashIndex].mac, index);
+            }
         }
 
-        strncpy(hashLatencyTable[index].mac,hashArray[hashIndex].mac,sizeof(hashArray[hashIndex].mac)-1);
+        //strncpy(hashLatencyTable[index].mac,hashArray[hashIndex].mac,sizeof(hashArray[hashIndex].mac)-1);
 
         hashLatencyTable[index].SynAckMinLatency_sec = hashArray[hashIndex].latency_sec;
         hashLatencyTable[index].SynAckMinLatency_usec = hashArray[hashIndex].latency_usec;
@@ -876,22 +897,24 @@ void UpdateReportingTable(int hashIndex)
         hashLatencyTable[index].lanSamples[ hashLatencyTable[index].Num_of_Sample]=latency_in_microsecond(hashArray[hashIndex].Lan_latency_sec,hashArray[hashIndex].Lan_latency_usec);
         hashLatencyTable[index].SamplesAges[ hashLatencyTable[index].Num_of_Sample++]= hashLatencyTable[index].SampleAge++;        
     }
-
-    int iTemp= 0;
-    dbg_log(">>>>>>>>>>>IPv4 Table details >>>>>>>>>>\n");
-    while((iTemp < MAX_NUM_OF_CLIENTS) && (Ipv4HashLatencyTable[iTemp].mac[0] != '\0'))
+    if ( args.dbg_mode == true )
     {
-        dbg_log("index:%d, Mac:%s\n",iTemp, Ipv4HashLatencyTable[iTemp].mac);
-        iTemp++;
+        int iTemp= 0;
+        dbg_log(">>>>>>>>>>>IPv4 Table details >>>>>>>>>>\n");
+        while((iTemp < MAX_NUM_OF_CLIENTS) && (Ipv4HashLatencyTable[iTemp].mac[0] != '\0'))
+        {
+            dbg_log("index:%d, Mac:%s\n",iTemp, Ipv4HashLatencyTable[iTemp].mac);
+            iTemp++;
+        }
+        dbg_log(">>>>>>>>>>>IPv6 Table details >>>>>>>>>>\n");
+        iTemp=0;
+        while((iTemp < MAX_NUM_OF_CLIENTS) && (Ipv6HashLatencyTable[iTemp].mac[0] != '\0'))
+        {
+            dbg_log("index:%d, Mac:%s\n",iTemp, Ipv6HashLatencyTable[iTemp].mac);
+            iTemp++;
+        }
+        dbg_log(">>>>>>>>>>>>>>>>>>>>>>>>>> >>>>>>>>>>\n");
     }
-    dbg_log(">>>>>>>>>>>IPv6 Table details >>>>>>>>>>\n");
-    iTemp=0;
-    while((iTemp < MAX_NUM_OF_CLIENTS) && (Ipv6HashLatencyTable[iTemp].mac[0] != '\0'))
-    {
-        dbg_log("index:%d, Mac:%s\n",iTemp, Ipv6HashLatencyTable[iTemp].mac);
-        iTemp++;
-    }
-    dbg_log(">>>>>>>>>>>>>>>>>>>>>>>>>> >>>>>>>>>>\n");
 LOG_MINMAX_LATENCY :
         hashLatencyTable[index].num_of_flows++;
 
@@ -1063,8 +1086,11 @@ void* LatencyReportThread(void* arg)
                         byteCount += tempCount+port_sz_count;
                         dbg_log("Flush Ipv4HashLatencyTable:%s\n",Ipv4HashLatencyTable[i].mac);
                         memset(&Ipv4HashLatencyTable[i],0,sizeof(LatencyTable));
-                        gHashLatTabIpv4MacCount--;
-                        dbg_log("after Flush Ipv4HashLatencyTable gHashLatTabIpv4MacCount %d\n",gHashLatTabIpv4MacCount);
+                      /*  if(gHashLatTabIpv4MacCount < MAX_NUM_OF_CLIENTS)
+                        {
+                            gHashLatTabIpv4MacCount--;
+                            dbg_log("after Flush Ipv4HashLatencyTable gHashLatTabIpv4MacCount %d\n",gHashLatTabIpv4MacCount);
+                        }*/
                         strncat(tmp_report_buf,str,(MAX_REPORT_SIZE-strlen(tmp_report_buf)-1));
                         strncat(tmp_report_buf,port_buff,(MAX_REPORT_SIZE-strlen(tmp_report_buf)-1));
                         num_of_ipv4_clients++;
@@ -1080,13 +1106,13 @@ void* LatencyReportThread(void* arg)
                 dbg_log("i = %d str = %s\n",i,str);
                 memset(str,0,hashSize);
             }
-            else if(0 != strlen(Ipv4HashLatencyTable[i].mac)){
+           /* else if(0 != strlen(Ipv4HashLatencyTable[i].mac)){
                 dbg_log("No valid entry found for Ipv4HashLatencyTable[%d]\n", i);
                 dbg_log("Flush Ipv4HashLatencyTable:%s\n",Ipv4HashLatencyTable[i].mac);
                 memset(&Ipv4HashLatencyTable[i],0,sizeof(LatencyTable));
                 gHashLatTabIpv4MacCount--;
                 dbg_log("after Flush Ipv4HashLatencyTable gHashLatTabIpv4MacCount %d\n",gHashLatTabIpv4MacCount);
-            }
+            }*/
             i++;
         }
         i = 0;
@@ -1139,8 +1165,11 @@ void* LatencyReportThread(void* arg)
                         byteCount += tempCount+port_sz_count;
                         dbg_log("Flush Ipv6HashLatencyTable:%s\n",Ipv6HashLatencyTable[i].mac);
                         memset(&Ipv6HashLatencyTable[i],0,sizeof(LatencyTable));
-                        gHashLatTabIpv6MacCount--;
-                        dbg_log("after Flush Ipv6HashLatencyTable gHashLatTabIpv6MacCount %d\n",gHashLatTabIpv6MacCount);
+                        /*if(gHashLatTabIpv6MacCount < MAX_NUM_OF_CLIENTS)
+                        {
+                            gHashLatTabIpv6MacCount--;
+                            dbg_log("After flush IPV6 count = %d\n", gHashLatTabIpv6MacCount);
+                        }*/
                         strncat(tmp_report_buf,str,(MAX_REPORT_SIZE-strlen(tmp_report_buf)-1));
                         strncat(tmp_report_buf,port_buff,(MAX_REPORT_SIZE-strlen(tmp_report_buf)-1));
                         num_of_ipv6_clients++;
@@ -1156,13 +1185,13 @@ void* LatencyReportThread(void* arg)
                 dbg_log("i = %d str = %s\n",i,str);
                 memset(str,0,hashSize);
             }
-            else if(0 != strlen(Ipv6HashLatencyTable[i].mac)){
+          /*  else if(0 != strlen(Ipv6HashLatencyTable[i].mac)){
                 dbg_log("No valid entry found for Ipv6HashLatencyTable[%d]\n", i);
                 dbg_log("Flush Ipv6HashLatencyTable:%s\n",Ipv6HashLatencyTable[i].mac);
                 memset(&Ipv6HashLatencyTable[i],0,sizeof(LatencyTable));
                 gHashLatTabIpv6MacCount--;
                 dbg_log("after Flush Ipv6HashLatencyTable gHashLatTabIpv6MacCount %d\n",gHashLatTabIpv6MacCount);
-            }
+            } */
             i++;
         }
         pthread_mutex_unlock(&latency_report_lock);
@@ -1170,7 +1199,7 @@ void* LatencyReportThread(void* arg)
         i = 0;
         memset(buf,0,sizeof(buf));
 
-        snprintf(buf,sizeof(buf),"Private,AnyDSCP,AnyECN,AnyPort,IPv6,num of Ipv6 clients %d",num_of_ipv6_clients);
+        snprintf(buf,sizeof(buf),"Private,AnyDSCP,AnyECN,AnyPort,IPv6, %d",num_of_ipv6_clients);
         dbg_log("before Report_buf is %s\n",report_buf);
         strncat(report_buf,buf,(MAX_REPORT_SIZE-strlen(report_buf)-1));
         strncat(report_buf,tmp_report_buf,(MAX_REPORT_SIZE-strlen(report_buf)-1));
@@ -1491,10 +1520,13 @@ void parseActiveRules(char* pRuleString)
         }
         pToken = strtok_r(NULL, cRule, &pRule_saveptr);
     }
-    dbg_log("Extracted %d unique MAC addresses: \n", g_iPriorityMacCount);
-    for (int iIndex = 0; iIndex < g_iPriorityMacCount; iIndex++)
+    if ( args.dbg_mode == true )
     {
-        dbg_log("MAC %d: %s\n", iIndex + 1, g_cMacAddresses[iIndex]);
+        dbg_log("Extracted %d unique MAC addresses: \n", g_iPriorityMacCount);
+        for (int iIndex = 0; iIndex < g_iPriorityMacCount; iIndex++)
+        {
+            dbg_log("MAC %d: %s\n", iIndex + 1, g_cMacAddresses[iIndex]);
+        }
     }
 }
 
@@ -1783,7 +1815,7 @@ int main(int argc,char **argv)
   
     // to destroy the message queue
     msgctl(msgid, IPC_RMID, NULL);
-    rbus_close(bus_handle_rbus);
+  //  rbus_close(bus_handle_rbus);
 
     if (logFp != NULL)
     {
