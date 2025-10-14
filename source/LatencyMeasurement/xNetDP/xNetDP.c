@@ -347,15 +347,15 @@ long long Calculate_Percentile(Calt_Percentile_info *Percentile_info)
 {
 	int percentile_index=0;
 	Percentile_info->Percentile=(Percentile_info->Percentile/100);
-	dbg_log("before sort :\n");
-	dbg_log("%d\n",print_Samples(Percentile_info->Samples,Percentile_info->Samples_age,Percentile_info->Number_of_Samples));
+	//dbg_log("before sort :\n");
+	//dbg_log("%d\n",print_Samples(Percentile_info->Samples,Percentile_info->Samples_age,Percentile_info->Number_of_Samples));
 	Sorting_ascending_order(0,(Percentile_info->Number_of_Samples-1),Percentile_info);
 	//dbg_log("Percentile_info.Percentile:%f\n",Percentile_info->Percentile);
-	dbg_log("after sort :\n");
-	dbg_log("%d\n",print_Samples(Percentile_info->Samples,Percentile_info->Samples_age, Percentile_info->Number_of_Samples));
+	//dbg_log("after sort :\n");
+	//dbg_log("%d\n",print_Samples(Percentile_info->Samples,Percentile_info->Samples_age, Percentile_info->Number_of_Samples));
 	percentile_index=(int)round(Percentile_info->Number_of_Samples*Percentile_info->Percentile);
 
-	dbg_log("Percentile_info.Samples:%lld,percentile_index:%d \n",Percentile_info->Samples[percentile_index-1],(percentile_index-1));
+	//dbg_log("Percentile_info.Samples:%lld,percentile_index:%d \n",Percentile_info->Samples[percentile_index-1],(percentile_index-1));
     return Percentile_info->Samples[percentile_index-1];
 }
 /*********************************************************************************
@@ -839,6 +839,26 @@ void UpdateReportingTable(int hashIndex)
 
         if (iFreeIndex == -1)
         {
+            if ( args.dbg_mode == true )
+            {
+                int iTemp= 0;
+                dbg_log(">>>>>>>>>>>IPv4 Table details >>>>>>>>>>\n");
+                while(iTemp < MAX_NUM_OF_CLIENTS)
+                {
+                    if (Ipv4HashLatencyTable[iTemp].mac[0] != '\0')
+                        dbg_log("index:%d, Mac:%s\n",iTemp, Ipv4HashLatencyTable[iTemp].mac);
+                    iTemp++;
+                }
+                dbg_log(">>>>>>>>>>>IPv6 Table details >>>>>>>>>>\n");
+                iTemp=0;
+                while(iTemp < MAX_NUM_OF_CLIENTS)
+                {
+                    if (Ipv6HashLatencyTable[iTemp].mac[0] != '\0')
+                        dbg_log("index:%d, Mac:%s\n",iTemp, Ipv6HashLatencyTable[iTemp].mac);
+                    iTemp++;
+                }
+                dbg_log(">>>>>>>>>>>>>>>>>>>>>>>>>> >>>>>>>>>>\n");
+            }
             dbg_log("%s : Hash table full. Cannot insert new MAC\n", __FUNCTION__);
             pthread_mutex_unlock(&latency_report_lock);
             return;
@@ -851,20 +871,20 @@ void UpdateReportingTable(int hashIndex)
 
         if (hashArray[hashIndex].ip_type == IPV4 )
         {
-            dbg_log(">>>>>>>>>>> New entry for IPV4 mac %s at index:%d and IPV4 Count : %d >>>>>>>>>>>\n",hashArray[hashIndex].mac, index, gHashLatTabIpv4MacCount);
+            dbg_log(">>>>>>>>>>> New entry for IPV4 mac %s at index:%d and IPV4 Count : %d >>>>>>>>>>>\n",hashLatencyTable[index].mac, index, gHashLatTabIpv4MacCount);
             if(gHashLatTabIpv4MacCount < MAX_NUM_OF_CLIENTS)
             {
                 gHashLatTabIpv4MacCount++;
-                dbg_log(">>>>>>>>>>> Incremented IPV4 count : %d and MAC : %s at index %d >>>>>>>>>>\n", gHashLatTabIpv4MacCount, hashArray[hashIndex].mac, index);
+                dbg_log(">>>>>>>>>>> Incremented IPV4 count : %d and MAC : %s at index %d >>>>>>>>>>\n", gHashLatTabIpv4MacCount, hashLatencyTable[index].mac, index);
             }
         }
         else
         {
-            dbg_log(">>>>>>>>>>> New entry for IPV6 mac %s and IPV6 count %d, at index:%d >>>>>>>>>>>\n", hashArray[hashIndex].mac, gHashLatTabIpv6MacCount, index);
+            dbg_log(">>>>>>>>>>> New entry for IPV6 mac %s and IPV6 count %d, at index:%d >>>>>>>>>>>\n", hashLatencyTable[index].mac, gHashLatTabIpv6MacCount, index);
             if(gHashLatTabIpv6MacCount < MAX_NUM_OF_CLIENTS)
             {
                 gHashLatTabIpv6MacCount++;
-                dbg_log(">>>>>>>>>>> Incremented IPV6 count : %d and MAC : %s at index %d >>>>>>>>>>\n", gHashLatTabIpv6MacCount, hashArray[hashIndex].mac, index);
+                dbg_log(">>>>>>>>>>> Incremented IPV6 count : %d and MAC : %s at index %d >>>>>>>>>>\n", gHashLatTabIpv6MacCount, hashLatencyTable[index].mac, index);
             }
         }
 
@@ -901,17 +921,20 @@ void UpdateReportingTable(int hashIndex)
     {
         int iTemp= 0;
         dbg_log(">>>>>>>>>>>IPv4 Table details >>>>>>>>>>\n");
-        while((iTemp < MAX_NUM_OF_CLIENTS) && (Ipv4HashLatencyTable[iTemp].mac[0] != '\0'))
+        while(iTemp < MAX_NUM_OF_CLIENTS)
         {
-            dbg_log("index:%d, Mac:%s\n",iTemp, Ipv4HashLatencyTable[iTemp].mac);
+            if(Ipv4HashLatencyTable[iTemp].mac[0] != '\0')
+                dbg_log("index:%d, Mac:%s\n",iTemp, Ipv4HashLatencyTable[iTemp].mac);
             iTemp++;
         }
         dbg_log(">>>>>>>>>>>IPv6 Table details >>>>>>>>>>\n");
         iTemp=0;
-        while((iTemp < MAX_NUM_OF_CLIENTS) && (Ipv6HashLatencyTable[iTemp].mac[0] != '\0'))
+        while(iTemp < MAX_NUM_OF_CLIENTS)
         {
-            dbg_log("index:%d, Mac:%s\n",iTemp, Ipv6HashLatencyTable[iTemp].mac);
+            if(Ipv6HashLatencyTable[iTemp].mac[0] != '\0')
+                dbg_log("index:%d, Mac:%s\n",iTemp, Ipv6HashLatencyTable[iTemp].mac);
             iTemp++;
+
         }
         dbg_log(">>>>>>>>>>>>>>>>>>>>>>>>>> >>>>>>>>>>\n");
     }
@@ -1009,9 +1032,7 @@ void* LatencyReportThread(void* arg)
     int tempCount = 0;
     int port_sz_count = 0;
     int hashSize= sizeof(LatencyTable)+1;
-    char str[hashSize];
-    char port_buff[SIZE];
-    char buf[128]={0};
+    char str[hashSize]; char port_buff[SIZE]; char buf[128]={0};
     int num_of_ipv4_clients = 0;  
     int num_of_ipv6_clients = 0;  
     char *report_buf = NULL ;
@@ -1052,7 +1073,7 @@ void* LatencyReportThread(void* arg)
             memset(str,0,hashSize);
             if(Ipv4HashLatencyTable[i].bHasLatencyEntry == true)
             {
-                printf("Index i is %d,Ipv4HashLatencyTable[i].bHasLatencyEntry\n",i);
+                dbg_log("Index i is %d,Ipv4HashLatencyTable[i].bHasLatencyEntry\n",i);
                 tempCount = snprintf(str,sizeof(str),";%s;%lu,%lld,%lld,%lld,%lld,%lld,%lld,%lld,%lld;",Ipv4HashLatencyTable[i].mac,Ipv4HashLatencyTable[i].num_of_flows,
                     latency_in_microsecond(Ipv4HashLatencyTable[i].SynAckMinLatency_sec,Ipv4HashLatencyTable[i].SynAckMinLatency_usec),
                     latency_in_microsecond(Ipv4HashLatencyTable[i].SynAckMaxLatency_sec,Ipv4HashLatencyTable[i].SynAckMaxLatency_usec),
@@ -1086,11 +1107,11 @@ void* LatencyReportThread(void* arg)
                         byteCount += tempCount+port_sz_count;
                         dbg_log("Flush Ipv4HashLatencyTable:%s\n",Ipv4HashLatencyTable[i].mac);
                         memset(&Ipv4HashLatencyTable[i],0,sizeof(LatencyTable));
-                      /*  if(gHashLatTabIpv4MacCount < MAX_NUM_OF_CLIENTS)
+                        if(gHashLatTabIpv4MacCount < MAX_NUM_OF_CLIENTS)
                         {
                             gHashLatTabIpv4MacCount--;
                             dbg_log("after Flush Ipv4HashLatencyTable gHashLatTabIpv4MacCount %d\n",gHashLatTabIpv4MacCount);
-                        }*/
+                        }
                         strncat(tmp_report_buf,str,(MAX_REPORT_SIZE-strlen(tmp_report_buf)-1));
                         strncat(tmp_report_buf,port_buff,(MAX_REPORT_SIZE-strlen(tmp_report_buf)-1));
                         num_of_ipv4_clients++;
@@ -1165,11 +1186,11 @@ void* LatencyReportThread(void* arg)
                         byteCount += tempCount+port_sz_count;
                         dbg_log("Flush Ipv6HashLatencyTable:%s\n",Ipv6HashLatencyTable[i].mac);
                         memset(&Ipv6HashLatencyTable[i],0,sizeof(LatencyTable));
-                        /*if(gHashLatTabIpv6MacCount < MAX_NUM_OF_CLIENTS)
+                        if(gHashLatTabIpv6MacCount < MAX_NUM_OF_CLIENTS)
                         {
                             gHashLatTabIpv6MacCount--;
                             dbg_log("After flush IPV6 count = %d\n", gHashLatTabIpv6MacCount);
-                        }*/
+                        }
                         strncat(tmp_report_buf,str,(MAX_REPORT_SIZE-strlen(tmp_report_buf)-1));
                         strncat(tmp_report_buf,port_buff,(MAX_REPORT_SIZE-strlen(tmp_report_buf)-1));
                         num_of_ipv6_clients++;
@@ -1375,7 +1396,7 @@ void* ClearHashThread(void* arg)
                         //if((seconds - (u_int)hashArray[i].TcpInfo[INDEX_SYN].tv_sec) > MAX_TCP_SYN_ACK_TIMEOUT)
                         if(diff > MAX_TCP_SYN_ACK_TIMEOUT)
                         {
-                                dbg_log("Clearing un-acknowledged SYN enteries\n");
+                                dbg_log("Clearing un-acknowledged SYN entries\n");
                                 memset(&hashArray[i],0,sizeof(TcpSniffer));
                                 g_HashCount--;
                         }
